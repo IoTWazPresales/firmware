@@ -1,7 +1,7 @@
 #include "SensorPH.h"
 
 SensorPH::SensorPH(AsyncWebServer* server) : _server(server), _lastReading(0) {
-    _state.ph = 0.0f; // Initialize the pH value
+    _state.ph = -1; // Initialize the pH value
 }
 
 float SensorPH::getPH() const {

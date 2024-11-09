@@ -1,7 +1,7 @@
 #include "TemperatureSensor.h"
 
 TemperatureSensor::TemperatureSensor(AsyncWebServer* server) : _server(server) {
-    _state.watertemperature = 0.0f; // Initialize temperature
+    _state.watertemperature = -1; // Initialize temperature
 }
 float TemperatureSensor::getTemperature() const {
     return _state.watertemperature;

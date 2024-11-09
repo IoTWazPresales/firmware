@@ -56,6 +56,12 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@types/history": "^4.7.11",
+    "mini-css-extract-plugin": "^2.9.1",
+    "webpack-manifest-plugin": "^5.0.0"
   }
+
   
 }

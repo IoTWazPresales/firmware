@@ -18,16 +18,16 @@ const System: FC = () => {
     <>
       <RouterTabs value={routerTab}>
         <Tab value="status" label="System Status" />
-        {features.ota && (
+        
           <Tab value="ota" label="OTA Settings"  />
-        )}
-        {features.upload_firmware && (
+      
+      
           <Tab value="upload" label="Upload Firmware"  />
-        )}
+        
       </RouterTabs>
       <Routes>
         <Route path="status" element={<SystemStatusForm />} />
-        {features.ota && (
+        
           <Route
             path="ota"
             element={
@@ -36,7 +36,7 @@ const System: FC = () => {
              
             }
           />
-        )}
+        
         <Route path="/*" element={<Navigate replace to="status" />} />
       </Routes>
     </>

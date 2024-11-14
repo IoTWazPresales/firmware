@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { FC, useRef, useState } from 'react';
-
+import SystemService from "../../api/system";
 import * as SystemApi from "../../api/system";
 import { FormLoader } from '../../components';
 
@@ -16,7 +16,7 @@ const FirmwareRestartMonitor: FC = () => {
   const timeoutAt = useRef(new Date().getTime() + RESTART_TIMEOUT);
   const poll = useRef(async () => {
     try {
-      await SystemApi.readSystemStatus(POLL_TIMEOUT);
+      await SystemService.readSystemStatus(POLL_TIMEOUT);
       document.location.href = "/firmwareUpdated";
     } catch (error: any) {
       if (new Date().getTime() < timeoutAt.current) {

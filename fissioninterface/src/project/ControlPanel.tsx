@@ -3,7 +3,7 @@ import logo from './logo.svg';
 import '../App.css';
 import { SnackbarProvider, useSnackbar } from 'notistack';
 import { BrowserRouter as Router } from 'react-router-dom'; // Import BrowserRouter
-import { RouterTabs, useLayoutTitle, useRouterTab } from './../components';
+import { RouterTabs, useLayoutTitle, useRouterTab } from '../components';
 import { Tune, Settings } from '@mui/icons-material';
 import Error from '@mui/icons-material/Error';
 import { ControlPoint } from '@mui/icons-material';
@@ -56,10 +56,10 @@ const dataPowerConsumation = [
   534, 521, 540, 240, 220, 235, 238, 228
 ];
 
-const Dashboard: FC = () => {
+const ControlPanel: FC = () => {
   const { enqueueSnackbar } = useSnackbar(); // This gives access to enqueueSnackbar function
 
-  useLayoutTitle("Dashboard");
+  useLayoutTitle("Control Panel");
   const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [controllerData, setControllerData] = useState<ControllerData | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
@@ -164,131 +164,7 @@ const handleSetMoistureThresholds = async () => {
         }}
       >
         <Stack spacing={0} direction="row" flexWrap='wrap'>
-          
-
-         {/* Water Temperature */}
-         <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Water Temperature</Typography>
-              <Typography variant="body1">
-              {loading ? (
-            <CircularProgress size={24} />
-          ) : sensorData?.temperature !== -1 && sensorData?.temperature != null ? (
-            `${sensorData.temperature} °C`
-          ) : (
-            <Error />
-         
-            
-          )}
-                     
-
-              </Typography>
-            </CardContent>
-          </Card>
- {/* Air Temperature */}
- <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Air Temperature</Typography>
-              <Typography variant="body1">
-              {loading ? (
-            <CircularProgress size={24} />
-          ) : sensorData?.airtemp !== -1 && sensorData?.airtemp != null ? (
-            `${sensorData.airtemp} °C`
-          ) : (
-            "No data available"
-          )}
-              </Typography>
-            </CardContent>
-          </Card>
-          {/* Air Humidity */}
-          <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Air Humidity</Typography>
-              <Typography variant="body1">
-              {loading ? (
-            <CircularProgress size={24} />
-          ) : sensorData?.humidity !== -1 && sensorData?.humidity != null ? (
-            `${sensorData.humidity} %`
-          ) : (
-            "No data available"
-          )}
-              </Typography>
-            </CardContent>
-          </Card>
-           {/* Soil Moisture */}
-           <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Soil Moisture</Typography>
-              <Typography variant="body1">
-              {loading ? (
-            <CircularProgress size={24} />
-          ) : sensorData?.moisture !== -1 && sensorData?.moisture != null ? (
-            `${sensorData.moisture} %`
-          ) : (
-            "No data available"
-          )}              
-            </Typography>
-          
-            </CardContent>
-          </Card>
-           {/* Water Particulates */}
-           <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Water Particulates</Typography>
-              <Typography variant="body1">
-
-              {loading ? (
-            <CircularProgress size={24} />
-          ) : sensorData?.tdsSensor !== -1 && sensorData?.tdsSensor != null ? (
-            `${sensorData.tdsSensor} %`
-          ) : (
-            "No data available"
-          )}                  
-              </Typography>
-              
-            </CardContent>
-          </Card>
-         {/* Water PH */}
-         <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Water PH</Typography>
-              <Typography variant="body1">
-              
-              {loading ? (
-            <CircularProgress size={24} />
-          ) : sensorData?.ph !== -1 && sensorData?.ph != null ? (
-            `${sensorData.ph} pH`
-          ) : (
-            "No data available"
-          )}   
-
-              </Typography>
-            </CardContent>
-          </Card>
-           {/* RTC Timestamp */}
-           <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">RTC Timestamp</Typography>
-              <Typography variant="body1">
-              {sensorData?.realtime !== "Unavailable" && sensorData?.realtime != null ? `${sensorData.realtime.replace("T", " ")}` : "Loading"}
                
-              </Typography>
-            </CardContent>
-          </Card>
-       
-        {/* Power Consumption */}
-        <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Power Consumption</Typography>
-              <Typography variant="body1">
-              Not Detected °C
-              </Typography>
-              <Typography variant="body2">
-                 {/* Additional logic for power consumption */}
-              </Typography>
-            </CardContent>
-          </Card>
-
           {/* Power Consumption */}
           <Card sx={{ minWidth: 200, margin: 1 }}>
   <CardContent>
@@ -451,4 +327,4 @@ const handleSetMoistureThresholds = async () => {
 
 
 
-export default Dashboard;
+export default ControlPanel;

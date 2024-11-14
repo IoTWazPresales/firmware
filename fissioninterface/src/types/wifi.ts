@@ -53,4 +53,5 @@ export interface WiFiNetwork {
   bssid: string;
   channel: number;
   encryption_type: WiFiEncryptionType;
+  status: number;
 }

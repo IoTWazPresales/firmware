@@ -2,6 +2,7 @@ import { FC, useContext, useEffect } from 'react';
 import { Navigate, Routes, Route, useLocation } from 'react-router-dom';
 import { useSnackbar, VariantType } from 'notistack';
 import  Dashboard  from '../src/project/Dashboard';
+import ControlPanel from '../src/project/Dashboard'; 
 import WiFiConnection from './framework/wifi/WiFiConnection';
 import AccessPoint from './framework/ap/AccessPoint';
 import NetworkTime from './framework/ntp/NetworkTime';
@@ -46,6 +47,7 @@ const AppRouting: FC = () => {
         <RemoveTrailingSlashes />
       <Routes>
       <Route path="/Dashboard/*" element={<Dashboard />} />
+      <Route path="/Controlpanel/*" element={<ControlPanel />} />
         <Route path="/wifi/*" element={<WiFiConnection />} />
         <Route path="/ap/*" element={<AccessPoint />} />
 

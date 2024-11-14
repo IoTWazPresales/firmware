@@ -1,24 +1,66 @@
-import { AxiosPromise } from 'axios';
-
 import { WiFiNetworkList, WiFiSettings, WiFiStatus } from '../types';
-import { AXIOS } from './endpoints';
+import axios from 'axios';
 
-export function readWiFiStatus(): AxiosPromise<WiFiStatus> {
-  return AXIOS.get('/wifiStatus');
+class WiFiService {
+  private apiUrl: string;
+
+  constructor(apiUrl: string) {
+    this.apiUrl = apiUrl;
+  }
+
+  // Method to fetch WiFi status
+  public async readWiFiStatus(): Promise<WiFiStatus> {
+    try {
+      const response = await axios.get<WiFiStatus>(`${this.apiUrl}/wifiStatus`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching WiFi status:', error);
+      throw error; // Handle error as needed
+    }
+  }
+
+  // Method to scan networks
+  public async scanNetworks(): Promise<void> {
+    try {
+      await axios.get(`${this.apiUrl}/scanNetworks`);
+    } catch (error) {
+      console.error('Error scanning networks:', error);
+      throw error; // Handle error as needed
+    }
+  }
+
+  // Method to list available networks
+  public async listNetworks(): Promise<WiFiNetworkList> {
+    try {
+      const response = await axios.get<WiFiNetworkList>(`${this.apiUrl}/listNetworks`);
+      return response.data;
+    } catch (error) {
+      console.error('Error listing networks:', error);
+      throw error; // Handle error as needed
+    }
+  }
+
+  // Method to fetch WiFi settings
+  public async readWiFiSettings(): Promise<WiFiSettings> {
+    try {
+      const response = await axios.get<WiFiSettings>(`${this.apiUrl}/wifiSettings`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching WiFi settings:', error);
+      throw error; // Handle error as needed
+    }
+  }
+
+  // Method to update WiFi settings
+  public async updateWiFiSettings(wifiSettings: WiFiSettings): Promise<WiFiSettings> {
+    try {
+      const response = await axios.post<WiFiSettings>(`${this.apiUrl}/wifiSettings`, wifiSettings);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating WiFi settings:', error);
+      throw error; // Handle error as needed
+    }
+  }
 }
 
-export function scanNetworks(): AxiosPromise<void> {
-  return AXIOS.get('/scanNetworks');
-}
-
-export function listNetworks(): AxiosPromise<WiFiNetworkList> {
-  return AXIOS.get('/listNetworks');
-}
-
-export function readWiFiSettings(): AxiosPromise<WiFiSettings> {
-  return AXIOS.get('/wifiSettings');
-}
-
-export function updateWiFiSettings(wifiSettings: WiFiSettings): AxiosPromise<WiFiSettings> {
-  return AXIOS.post('/wifiSettings', wifiSettings);
-}
+export default new WiFiService('http://192.168.101.209/api');

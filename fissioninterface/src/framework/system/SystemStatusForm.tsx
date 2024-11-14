@@ -1,4 +1,4 @@
-import { FC, useContext, useState } from "react";
+import { FC, useContext, useState,useEffect } from "react";
 import { useSnackbar } from "notistack";
 
 import {
@@ -15,7 +15,7 @@ import FolderIcon from '@mui/icons-material/Folder';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 import SettingsBackupRestoreIcon from '@mui/icons-material/SettingsBackupRestore';
-
+import SystemService from "../../api/system";
 import * as SystemApi from "../../api/system";
 import { EspPlatform, SystemStatus } from "../../types";
 import { ButtonRow, FormLoader, SectionContent } from "../../components";
@@ -27,9 +27,57 @@ function formatNumber(num: number) {
 }
 
 const SystemStatusForm: FC = () => {
-  const {
-    loadData, data, errorMessage
-  } = useRest<SystemStatus>({ read: SystemApi.readSystemStatus });
+  
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>();
+ const [systemStatus, setsystemStatus] = useState<SystemStatus>();
+
+
+    const fetchSystemData = async () => {
+         try {
+            const data = await SystemService.readSystemStatus();
+            setsystemStatus(data);
+           
+        } catch (err) {
+            setError('Failed to system data.');
+        } finally {
+            setLoading(false);
+        }
+    };
+    const handleRefresh = () => {
+      setLoading(true);
+      fetchSystemData();
+    };
+    useEffect(() => {
+      const SystemInterval = setInterval(fetchSystemData, 5000);
+  
+      return () => {
+        clearInterval(SystemInterval);
+      };
+    }, []);
+
+
+ // Cleanup both intervals on component unmount
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
  
   const [confirmRestart, setConfirmRestart] = useState<boolean>(false);
@@ -40,7 +88,7 @@ const SystemStatusForm: FC = () => {
   const restart = async () => {
     setProcessing(true);
     try {
-      await SystemApi.restart();
+      await SystemService.restart();
       enqueueSnackbar("Device is restarting", { variant: 'info' });
     } catch (error: any) {
       enqueueSnackbar(extractErrorMessage(error, 'Problem restarting device'), { variant: 'error' });
@@ -80,7 +128,7 @@ const SystemStatusForm: FC = () => {
   const factoryReset = async () => {
     setProcessing(true);
     try {
-      await SystemApi.factoryReset();
+      await SystemService.factoryReset();
       enqueueSnackbar("Device has been factory reset and will now restart", { variant: 'info' });
     } catch (error: any) {
       enqueueSnackbar(extractErrorMessage(error, 'Problem factory resetting the device'), { variant: 'error' });
@@ -118,8 +166,8 @@ const SystemStatusForm: FC = () => {
   );
 
   const content = () => {
-    if (!data) {
-      return (<FormLoader onRetry={loadData} errorMessage={errorMessage} />);
+    if (!systemStatus) {
+      return (<FormLoader onRetry={systemStatus} errorMessage={error} />);
     }
 
     return (
@@ -131,7 +179,7 @@ const SystemStatusForm: FC = () => {
                 <DevicesIcon />
               </Avatar>
             </ListItemAvatar>
-            <ListItemText primary="Device (Platform / SDK)" secondary={data.esp_platform + ' / ' + data.sdk_version} />
+            <ListItemText primary="Device (Platform / SDK)" secondary={systemStatus.esp_platform + ' / ' + systemStatus.sdk_version} />
           </ListItem>
           <Divider variant="inset" component="li" />
           <ListItem >
@@ -140,7 +188,7 @@ const SystemStatusForm: FC = () => {
                 <ShowChartIcon />
               </Avatar>
             </ListItemAvatar>
-            <ListItemText primary="CPU Frequency" secondary={data.cpu_freq_mhz + ' MHz'} />
+            <ListItemText primary="CPU Frequency" secondary={systemStatus.cpu_freq_mhz + ' MHz'} />
           </ListItem>
           <Divider variant="inset" component="li" />
           <ListItem >
@@ -152,17 +200,17 @@ const SystemStatusForm: FC = () => {
             <ListItemText
               primary="Heap (Free / Max Alloc)"
               secondary={
-                formatNumber(data.free_heap) +
+                formatNumber(systemStatus.free_heap) +
                 ' / ' +
-                formatNumber(data.max_alloc_heap) +
+                formatNumber(systemStatus.max_alloc_heap) +
                 ' bytes ' +
-                (data.esp_platform === EspPlatform.ESP8266 ? '(' + data.heap_fragmentation + '% fragmentation)' : '')
+                (systemStatus.esp_platform === EspPlatform.ESP8266 ? '(' + systemStatus.heap_fragmentation + '% fragmentation)' : '')
               }
             />
           </ListItem>
           {
             (
-              data.esp_platform === EspPlatform.ESP32 && data.psram_size > 0) && (
+              systemStatus.esp_platform === EspPlatform.ESP32 && systemStatus.psram_size > 0) && (
               <>
                 <Divider variant="inset" component="li" />
                 <ListItem >
@@ -173,7 +221,7 @@ const SystemStatusForm: FC = () => {
                   </ListItemAvatar>
                   <ListItemText
                     primary="PSRAM (Size / Free)"
-                    secondary={formatNumber(data.psram_size) + ' / ' + formatNumber(data.free_psram) + ' bytes'}
+                    secondary={formatNumber(systemStatus.psram_size) + ' / ' + formatNumber(systemStatus.free_psram) + ' bytes'}
                   />
                 </ListItem>
               </>
@@ -188,7 +236,7 @@ const SystemStatusForm: FC = () => {
             </ListItemAvatar>
             <ListItemText
               primary="Sketch (Size / Free)"
-              secondary={formatNumber(data.sketch_size) + ' / ' + formatNumber(data.free_sketch_space) + ' bytes'}
+              secondary={formatNumber(systemStatus.sketch_size) + ' / ' + formatNumber(systemStatus.free_sketch_space) + ' bytes'}
             />
           </ListItem>
           <Divider variant="inset" component="li" />
@@ -200,7 +248,7 @@ const SystemStatusForm: FC = () => {
             </ListItemAvatar>
             <ListItemText
               primary="Flash Chip (Size / Speed)"
-              secondary={formatNumber(data.flash_chip_size) + ' bytes / ' + (data.flash_chip_speed / 1000000).toFixed(0) + ' MHz'}
+              secondary={formatNumber(systemStatus.flash_chip_size) + ' bytes / ' + (systemStatus.flash_chip_speed / 1000000).toFixed(0) + ' MHz'}
             />
           </ListItem>
           <Divider variant="inset" component="li" />
@@ -213,10 +261,10 @@ const SystemStatusForm: FC = () => {
             <ListItemText
               primary="File System (Used / Total)"
               secondary={
-                formatNumber(data.fs_used) +
+                formatNumber(systemStatus.fs_used) +
                 ' / ' +
-                formatNumber(data.fs_total) +
-                ' bytes (' + formatNumber(data.fs_total - data.fs_used) + '\xa0bytes free)'
+                formatNumber(systemStatus.fs_total) +
+                ' bytes (' + formatNumber(systemStatus.fs_total - systemStatus.fs_used) + '\xa0bytes free)'
               }
             />
           </ListItem>
@@ -225,7 +273,7 @@ const SystemStatusForm: FC = () => {
         <Box display="flex" flexWrap="wrap">
           <Box flexGrow={1}>
             <ButtonRow mt={1}>
-              <Button startIcon={<RefreshIcon />} variant="contained" color="secondary" onClick={loadData}>
+              <Button startIcon={<RefreshIcon />} variant="contained" color="secondary" onClick={handleRefresh}>
                 Refresh
               </Button>
             </ButtonRow>

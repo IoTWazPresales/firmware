@@ -18,46 +18,71 @@ RelayControlEndpoint::RelayControlEndpoint(AsyncWebServer* server,
 
 void RelayControlEndpoint::handleRelayData() {
     // Enable CORS for all endpoints
-    Serial.println("initialize cors");
-    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
-    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type");
-     Serial.println("cors initialized");
     // Handle the GET request for sensor data
      Serial.println("before serve");
     _server->on("/api/relay", HTTP_GET, [this](AsyncWebServerRequest *request) {
         // Create a JSON object to hold the sensor data
-        Serial.println("before json");
         DynamicJsonDocument jsonDoc(1024);
-Serial.println("after json");
-        // Fetch sensor data from your sensor classes
-        Serial.println("waterpump");
         float pumpState = _waterPump->getWaterPump();
-        Serial.println("is waterpump");
-         Serial.println("before fetch");
-    
-        
-
-
-Serial.println("after PH fetch");
-        // Populate the JSON objectx
-        Serial.println("populate template temp");
-        
         jsonDoc["pumpState"] = pumpState;
-     
-        
-
-Serial.println("templates populated");
-        // Send the JSON response
-        Serial.println("Sending response");
         String response;
-        Serial.println("serialize Json");
+        
         serializeJson(jsonDoc, response);
-        Serial.println("json serialized");
-        Serial.println("Sending request");
+     
         request->send(200, "application/json", response);
         Serial.println("Request Sent");
     });
+
+ _server->on("/api/relay/setThresholds", HTTP_POST, 
+        [this](AsyncWebServerRequest *request){
+            // No response here, handle it in the onRequestBody
+        }, 
+        nullptr,
+        [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+            Serial.println("Receiving JSON body data");
+
+
+
+            // Convert incoming data to a String
+            String body = String((char*)data, len);
+            Serial.print("Received body: ");
+            Serial.println(body);
+
+            // Deserialize JSON
+            DynamicJsonDocument doc(1024);
+            DeserializationError error = deserializeJson(doc, body);
+            if (error) {
+                request->send(400, "application/json", "{\"status\":\"error\", \"message\":\"Invalid JSON\"}");
+                return;
+            }
+
+               if (!doc.containsKey("minMoisture") || !doc.containsKey("maxMoisture")) {
+                request->send(400, "application/json", "{\"status\":\"error\", \"message\":\"Missing parameters\"}");
+                return;
+            }
+
+
+          float minMoisture = doc["minMoisture"].as<float>();
+        float maxMoisture = doc["maxMoisture"].as<float>();
+        Serial.print("minMoisture: ");
+        Serial.println(minMoisture);
+        Serial.print("maxMoisture: ");
+        Serial.println(maxMoisture);
+
+        
+            if (minMoisture >= maxMoisture) {
+                request->send(400, "application/json", "{\"status\":\"error\", \"message\":\"minMoisture must be less than maxMoisture\"}");
+                return;
+            }
+ // Set the moisture thresholds
+            _setPumpThreshold->setThresholds(minMoisture, maxMoisture);
+
+            // Respond with success
+            request->send(200, "application/json", "{\"status\":\"success\"}");
+});
+    
+
+
 
     // Optional: Handle preflight OPTIONS request
     Serial.println("handiling pre flight");

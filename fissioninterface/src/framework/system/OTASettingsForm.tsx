@@ -1,37 +1,59 @@
-import React, { FC, useState } from 'react';
+import React, { FC, useState, useEffect } from 'react';
 import { ValidateFieldsError } from 'async-validator';
-
+import SystemService from "../../api/system";
 import { Button, Checkbox } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 
-import * as SystemApi from "../../api/system";
 import { OTASettings } from '../../types';
 import { BlockFormControlLabel, ButtonRow, FormLoader, SectionContent, ValidatedPasswordField, ValidatedTextField } from '../../components';
 import { validate, OTA_SETTINGS_VALIDATOR } from '../../validators';
-import { numberValue, updateValue, useRest } from '../../utils';
+import { numberValue, updateValue } from '../../utils';
 
 const OTASettingsForm: FC = () => {
   const [fieldErrors, setFieldErrors] = useState<ValidateFieldsError>();
-  const {
-    loadData, saving, data, setData, saveData, errorMessage
-  } = useRest<OTASettings>({ read: SystemApi.readOTASettings, update: SystemApi.updateOTASettings });
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>();
+  const [saving, setSaving] = useState<boolean>(false);
+  const [data, setData] = useState<OTASettings | null>(null);
+
+  const fetchOTAData = async () => {
+    setLoading(true);
+    try {
+      const response = await SystemService.readOTASettings();
+      setData(response);
+    } catch (err) {
+      setError('Failed to load OTA settings.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const updateFormValue = updateValue(setData);
 
-  const content = () => {
-    if (!data) {
-      return (<FormLoader onRetry={loadData} errorMessage={errorMessage} />);
+  const validateAndSubmit = async () => {
+    try {
+      if (!data) return;
+      setFieldErrors(undefined);
+      setSaving(true);
+      await validate(OTA_SETTINGS_VALIDATOR, data);
+      await SystemService.updateOTASettings(data);
+    } catch (errors: any) {
+      setFieldErrors(errors);
+      console.error(errors);
+    } finally {
+      setSaving(false);
     }
+  };
 
-    const validateAndSubmit = async () => {
-      try {
-        setFieldErrors(undefined);
-        await validate(OTA_SETTINGS_VALIDATOR, data);
-        saveData();
-      } catch (errors: any) {
-        setFieldErrors(errors);
-      }
-    };
+  useEffect(() => {
+    fetchOTAData();
+  }, []);
+
+  const content = () => {
+    if (loading) {
+      return <FormLoader onRetry={fetchOTAData} errorMessage={error} />;
+    }
 
     return (
       <>
@@ -39,7 +61,7 @@ const OTASettingsForm: FC = () => {
           control={
             <Checkbox
               name="enabled"
-              checked={data.enabled}
+              checked={data?.enabled}
               onChange={updateFormValue}
             />
           }
@@ -51,7 +73,7 @@ const OTASettingsForm: FC = () => {
           label="Port"
           fullWidth
           variant="outlined"
-          value={numberValue(data.port)}
+          value={numberValue(data?.port ?? 0)}
           type="number"
           onChange={updateFormValue}
           margin="normal"
@@ -62,12 +84,12 @@ const OTASettingsForm: FC = () => {
           label="Password"
           fullWidth
           variant="outlined"
-          value={data.password}
+          value={data?.password}
           onChange={updateFormValue}
           margin="normal"
         />
         <ButtonRow mt={1}>
-          <Button startIcon={<SaveIcon />} disabled={saving} variant="contained" color="primary" type="submit" onClick={validateAndSubmit}>
+          <Button startIcon={<SaveIcon />} disabled={saving} variant="contained" color="primary" onClick={validateAndSubmit}>
             Save
           </Button>
         </ButtonRow>

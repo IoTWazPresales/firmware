@@ -1,0 +1,24 @@
+#ifndef SystemStatus_h
+#define SystemStatus_h
+
+#include <WiFi.h>
+#include <AsyncTCP.h>
+
+
+#include <ArduinoJson.h>
+#include <AsyncJson.h>
+#include <ESPAsyncWebServer.h>
+#include <ESPFS.h>
+
+#define MAX_ESP_STATUS_SIZE 1024
+#define SYSTEM_STATUS_SERVICE_PATH "/api/systemStatus"
+
+class SystemStatus {
+ public:
+  SystemStatus(AsyncWebServer* server);
+
+ private:
+  void systemStatus(AsyncWebServerRequest* request);
+};
+
+#endif  // end SystemStatus_h

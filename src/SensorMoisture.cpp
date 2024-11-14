@@ -1,3 +1,6 @@
+#ifndef SENSOR_MOISTURE_H
+#define SENSOR_MOISTURE_H
+
 #include <SensorMoisture.h>
 
 
@@ -38,3 +41,4 @@ void SensorMoisture::readSensor() {
   _state.moisture = moisture;
 }
 
+#endif

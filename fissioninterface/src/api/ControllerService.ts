@@ -12,8 +12,20 @@ class ControllerService {
     constructor(apiUrl: string) {
         this.apiUrl = apiUrl;
     }
-
-
+    public async setMoistureThresholds(minMoisture: number, maxMoisture: number): Promise<void> {
+        try {
+            console.log("Setting moisture thresholds");
+            await axios.post(`${this.apiUrl}/setThresholds`, {
+                minMoisture,
+                maxMoisture,
+            });
+            console.log("Thresholds set successfully");
+        } catch (error) {
+            console.error("Error setting moisture thresholds:", error);
+            throw error; // Handle error as needed
+        }
+    }
+    
     
     // Method to fetch sensor data
     public async getControllerData(): Promise<ControllerData> {
@@ -28,4 +40,4 @@ class ControllerService {
     }
 }
 
-export default new ControllerService('http://192.168.101.206/api/relay');
+export default new ControllerService('http://192.168.101.209/api/relay');

@@ -1,57 +1,61 @@
 #include "SensorEndpoints.h"
 
-SensorEndpoints::SensorEndpoints(AsyncWebServer* server, SensorPH* phSensor, TemperatureSensor* tempSensor) 
-    : _server(server), _phSensor(phSensor), _tempSensor(tempSensor) {
-        Serial.println("initialize handler");
-    handleSensorData(); // Initialize endpoint handlers
-     Serial.println("handler initialized");
+SensorEndpoints::SensorEndpoints(AsyncWebServer* server, 
+                                SensorPH* phSensor, 
+                                TemperatureSensor* tempSensor,
+                                SensorHumidityDHT11* airTemp,
+                                SensorHumidityDHT11* airHumidity,
+                                SensorMoisture* soilMoisture,
+                                SensorRTC* realtime,
+                                SensorTDS* tdsSensor
+                                                               
+                                ) 
+
+    : _server(server), 
+    _phSensor(phSensor), 
+    _tempSensor(tempSensor),
+    _airTemp(airTemp),
+    _airHumidity(airHumidity),
+    _soilMoisture(soilMoisture),
+    _realtime(realtime),
+    _tdsSensor(tdsSensor)
+    
+    {
+    handleSensorData(); // Initialize endpoint handler
 }
 
 void SensorEndpoints::handleSensorData() {
-    // Enable CORS for all endpoints
-    Serial.println("initialize cors");
+    // Enable CORS for all endpoint
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type");
-     Serial.println("cors initialized");
     // Handle the GET request for sensor data
-     Serial.println("before serve");
     _server->on("/api/sensor", HTTP_GET, [this](AsyncWebServerRequest *request) {
         // Create a JSON object to hold the sensor data
-        Serial.println("before json");
         DynamicJsonDocument jsonDoc(1024);
-Serial.println("after json");
         // Fetch sensor data from your sensor classes
-        Serial.println("before tempsesnorfetch");
         float temperature = _tempSensor->getTemperature();
-        Serial.println("after temperature fetch");
-         Serial.println("before PH fetch");
         float ph = _phSensor->getPH();
-Serial.println("after PH fetch");
-        // Populate the JSON objectx
-        Serial.println("populate template temp");
-        
+        float humidity= _airHumidity->getHumidity();
+        float airtemp= _airTemp->getAirTemperature();
+        float moisture= _soilMoisture->getMoisture();
+        float tdsSens= _tdsSensor->getTDS();
+        String real= _realtime->getRTC();
         jsonDoc["temperature"] = temperature;
-
-        Serial.println("populate ph temp");
+        jsonDoc["humidity"] = humidity;
+        jsonDoc["airtemp"]= airtemp;
         jsonDoc["ph"] = ph;
-Serial.println("templates populated");
-        // Send the JSON response
-        Serial.println("Sending response");
+        jsonDoc["moisture"] = moisture;
+        jsonDoc["tdsSens"] = tdsSens;
+        jsonDoc["real"] = real;
+        
         String response;
-        Serial.println("serialize Json");
         serializeJson(jsonDoc, response);
-        Serial.println("json serialized");
-        Serial.println("Sending request");
         request->send(200, "application/json", response);
-        Serial.println("Request Sent");
     });
 
     // Optional: Handle preflight OPTIONS request
-    Serial.println("handiling pre flight");
     _server->on("/api/sensor", HTTP_OPTIONS, [](AsyncWebServerRequest *request) {
-        Serial.println("sending preflight");
         request->send(204);
-        Serial.println("preflight sent");
     });
 }

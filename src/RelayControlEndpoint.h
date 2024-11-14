@@ -16,12 +16,14 @@ public:
         
         void handleRelayData();
     
-
+        void setThresholds(float minMoisture, float maxMoisture);
 
 private:
     AsyncWebServer* _server;
     RelayControl* _setPumpThreshold;
     RelayControl* _waterPump;
+    float _minMoisture;
+    float _maxMoisture;
 };
 
 #endif // SENSOR_ENDPOINTS_H

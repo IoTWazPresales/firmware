@@ -1,36 +1,18 @@
-
-
 import axios from 'axios';
-
-export interface SensorData {
-    temperature: number;
-    ph: number;
-    humidity: number;
-    airtemp: number;
-    moisture: number;
-    tdsSensor: number;
-    realtime: string;
-}
+import { API_CONFIG } from './apiConfig';
+import { SensorData } from '../types/sensors';
 
 class SensorService {
-    private apiUrl: string;
-
-    constructor(apiUrl: string) {
-        this.apiUrl = apiUrl;
-    }
-
-
-    
     // Method to fetch sensor data
     public async getSensorData(): Promise<SensorData> {
         try {
-            const response = await axios.get<SensorData>(this.apiUrl);
+            const response = await axios.get<SensorData>(API_CONFIG.SENSOR.DATA);
             return response.data;
         } catch (error) {
             console.error('Error fetching sensor data:', error);
-            throw error; // Handle error as needed
+            throw error;
         }
     }
 }
 
-export default new SensorService('http://192.168.101.209/api/sensor');
+export default new SensorService();

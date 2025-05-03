@@ -30,6 +30,7 @@ struct SensorState {
         unsigned long _lastReading = 0;
     const unsigned long RTCInterval = 5000;  // Interval in milliseconds
   RTC_DS3231 _rtc;
+  bool _rtcAvailable;
 
  };
 

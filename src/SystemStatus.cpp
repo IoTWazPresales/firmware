@@ -27,8 +27,8 @@ void SystemStatus::systemStatus(AsyncWebServerRequest* request) {
 // TODO - Ideally this class will take an *FS and extract the file system information from there.
 // ESP8266 and ESP32 do not have feature parity in FS.h which currently makes that difficult.
 
-  root["fs_total"] = ESPFS.totalBytes();
-  root["fs_used"] = ESPFS.usedBytes();
+  root["fs_total"] = LittleFS.totalBytes();
+  root["fs_used"] = LittleFS.usedBytes();
 
   response->setLength();
   request->send(response);

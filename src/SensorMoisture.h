@@ -3,7 +3,7 @@
 
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
-
+#include <WiFi.h>
 class SensorMoisture{
  public:
   SensorMoisture(AsyncWebServer* server);

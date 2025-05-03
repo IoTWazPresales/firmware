@@ -1,145 +1,76 @@
-import React, { FC, RefObject, useEffect ,useState } from 'react';
-import logo from './logo.svg';
+import React, { FC, RefObject, useEffect, useState } from 'react';
 import '../App.css';
 import { SnackbarProvider, useSnackbar } from 'notistack';
-import { BrowserRouter as Router } from 'react-router-dom'; // Import BrowserRouter
-import { RouterTabs, useLayoutTitle, useRouterTab } from './../components';
-import { Tune, Settings } from '@mui/icons-material';
-import Error from '@mui/icons-material/Error';
-import { ControlPoint } from '@mui/icons-material';
-import { IconButton, Button, Typography,
-  Paper,
-  Stack,
-  Alert,
-  Card,
-  CardContent,
-  Box,
-  Slider,  
-  CircularProgress,
-  CardActions,
-  Switch  } from '@mui/material';
-  import { useWs } from '../utils/useWs';
-  import { updateValue} from '../utils/binding';
-  
-import { WEB_SOCKET_ROOT } from '../api/endpoints';
+import { IconButton, Box, Alert } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import SensorCard from '../components/SensorCard';
 import CustomTheme from '../CustomTheme';
-import SectionContent from '../SectionContent';
-import { Layout } from '../components/layout'; 
-import SensorService, {SensorData} from '../api/SensorService';
-import ControllerService, {ControllerData} from '../api/ControllerService';
-import SensorCard from '../components/CustomCard';
-
-
-interface SensorDataState {
-  [key: string]: number | null;
-}
-
-
-const dataMoisture = [
-  65, 65, 64.5, 64, 63, 62, 60, 57, 54, 50, 45, 41, 38, 36, 34, 31, 28, 24, 19
-];
-
-const dataLights = [
-  1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1
-];
-
-const dataAirPump = [
-  1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-];
-
-const dataFanRelay = [
-  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-];
-
-const dataPowerConsumation = [
-  534, 521, 540, 240, 220, 235, 238, 228
-];
+import SensorService from '../api/SensorService';
+import ControllerService from '../api/ControllerService';
 
 const Dashboard: FC = () => {
-  const { enqueueSnackbar } = useSnackbar(); // This gives access to enqueueSnackbar function
+  const { enqueueSnackbar } = useSnackbar();
+  const [sensorData, setSensorData] = useState<any | null>(null);
+  const [thresholds, setThresholds] = useState<any | null>(null);
+  const [deviceStates, setDeviceStates] = useState<any | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  useLayoutTitle("Dashboard");
-  const [sensorData, setSensorData] = useState<SensorData | null>(null);
-  const [controllerData, setControllerData] = useState<ControllerData | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [error, setError] = useState<string | null>(null);
-    const [pumpState, setPumpState] = useState<boolean>(true);  // Declare pumpState here
+  // Data for charts
+  const [waterTempData, setWaterTempData] = useState<number[]>([]);
+  const [airTempData, setAirTempData] = useState<number[]>([]);
+  const [humidityData, setHumidityData] = useState<number[]>([]);
+  const [moistureData, setMoistureData] = useState<number[]>([]);
+  const [TDSData, setTDSData] = useState<number[]>([]);
+  const [CO2Data, setCO2Data] = useState<number[]>([]);
+  const [TVOCData, setTVOCData] = useState<number[]>([]);
+  const [phData, setphData] = useState<number[]>([]);
+  const [airQualityData, setAirQualityData] = useState<number[]>([]);
 
-    const [minMoisture, setMinMoisture] = useState(30); // default values
-const [maxMoisture, setMaxMoisture] = useState(70);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [sensorResponse, thresholdsResponse, devicesResponse] = await Promise.all([
+          SensorService.getSensorData(),
+          ControllerService.getThresholds(),
+          ControllerService.getDeviceStates(),
+        ]);
 
+        setSensorData(sensorResponse);
+        setThresholds(thresholdsResponse);
+        setDeviceStates(devicesResponse);
 
+        if (sensorResponse) {
+          setAirTempData((prev) => [...prev.slice(-19), sensorResponse.airtemp || 0]);
+          setHumidityData((prev) => [...prev.slice(-19), sensorResponse.humidity || 0]);
+          setMoistureData((prev) => [...prev.slice(-19), sensorResponse.moisture || 0]);
+          setTDSData((prev) => [...prev.slice(-19), sensorResponse.tdsSens || 0]);
+          setCO2Data((prev) => [...prev.slice(-19), sensorResponse.CO2 || 0]);
+          setTVOCData((prev) => [...prev.slice(-19), sensorResponse.TVOC || 0]);
+          setWaterTempData((prev) => [...prev.slice(-19), sensorResponse.temperature || 0]);
+          setphData((prev) => [...prev.slice(-19), sensorResponse.ph || 0]);
+          setAirQualityData((prev) => [...prev.slice(-19), sensorResponse.airquality || 0]);
+        }
+      } catch (error) {
+        enqueueSnackbar('Failed to fetch sensor data', { variant: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-const handleMinMoistureChange = (event: Event, newValue: number | number[]) => {
-  const minValue = Array.isArray(newValue) ? newValue[0] : newValue;
-  setMinMoisture(minValue);
-};
-
-const handleMaxMoistureChange = (event: Event, newValue: number | number[]) => {
-  const maxValue = Array.isArray(newValue) ? newValue[0] : newValue;
-  setMaxMoisture(maxValue);
-};
-const handleSetMoistureThresholds = async () => {
-  try {
-      // Call the service to set the moisture thresholds
-      await ControllerService.setMoistureThresholds(minMoisture, maxMoisture);
-      console.log('Moisture thresholds set successfully');
-      enqueueSnackbar('Moisture thresholds set successfully!', { variant: 'success' });
-
-  } catch (error) {
-    console.error('Failed to set moisture threshold:', error);
-    enqueueSnackbar('Failed to set moisture change', { variant: 'error' });
-  }
-};
-
-    useEffect(() => {
-     
-        const fetchSensorData = async () => {
-             try {
-                const data = await SensorService.getSensorData();
-                setSensorData(data);
-               
-            } catch (err) {
-                setError('Failed to fetch sensor data.');
-            } finally {
-                setLoading(false);
-            }
-        };
-        const fetchControllerData = async () => {
-          try {
-             const data = await ControllerService.getControllerData();
-             setControllerData(data);
-         } catch (err) {
-             setError('Failed to fetch sensor data.');
-         } finally {
-             setLoading(false);
-         }
-     };
-        
-     const sensorInterval = setInterval(fetchSensorData, 5000);
-     const controllerInterval = setInterval(fetchControllerData, 5000);
- 
-     // Cleanup both intervals on component unmount
-     return () => {
-         clearInterval(sensorInterval);
-         clearInterval(controllerInterval);
-     };
-    }, []);
-
-
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
+  }, [enqueueSnackbar]);
 
   const notistackRef: RefObject<any> = React.createRef();
   const onClickDismiss = (key: string | number | undefined) => () => {
     notistackRef.current.closeSnackbar(key);
   };
-   
 
   return (
-
-<CustomTheme>
+    <CustomTheme>
       <SnackbarProvider
-        maxSnack={3}
+        maxSnack={2}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         ref={notistackRef}
         action={(key) => (
@@ -148,307 +79,207 @@ const handleSetMoistureThresholds = async () => {
           </IconButton>
         )}
       >
-       <Alert severity='error' >
-        Soil moisture too low, please switch on water pump.
-      </Alert>
-      <SectionContent title='System status and direct control panel' titleGutter>
-        
-      <Paper
- 
-        elevation={20}
-        sx={{
-          p: 0.5,
-          display: 'flex',
-          flexDirection: 'row',
-          mt: 1
-        }}
-      >
-        <Stack spacing={0} direction="row" flexWrap='wrap'>
-          
+        <Alert severity="error">Soil moisture too low, please switch on water pump.</Alert>
 
-         {/* Water Temperature */}
-         <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Water Temperature</Typography>
-              <Typography variant="body1">
-              {loading ? (
-            <CircularProgress size={24} />
-          ) : sensorData?.temperature !== -1 && sensorData?.temperature != null ? (
-            `${sensorData.temperature} °C`
-          ) : (
-            <Error />
-         
-            
-          )}
-                     
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: 2,
+            padding: 1,
+          }}
+        >
+          {/* Sensor Cards */}
+          <SensorCard
+            title="Air Temperature"
+            value={sensorData?.airtemp ?? null}
+            unit="°C"
+            loading={loading}
+            chartType="sparkline"
+            chartData={airTempData}
+            minThreshold={thresholds?.minTemp}
+            maxThreshold={thresholds?.maxTemp}
+            deviceStatus={deviceStates?.extractorFanState ?? false}
+          />
 
-              </Typography>
-            </CardContent>
-          </Card>
- {/* Air Temperature */}
- <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Air Temperature</Typography>
-              <Typography variant="body1">
-              {loading ? (
-            <CircularProgress size={24} />
-          ) : sensorData?.airtemp !== -1 && sensorData?.airtemp != null ? (
-            `${sensorData.airtemp} °C`
-          ) : (
-            "No data available"
-          )}
-              </Typography>
-            </CardContent>
-          </Card>
-          {/* Air Humidity */}
-          <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Air Humidity</Typography>
-              <Typography variant="body1">
-              {loading ? (
-            <CircularProgress size={24} />
-          ) : sensorData?.humidity !== -1 && sensorData?.humidity != null ? (
-            `${sensorData.humidity} %`
-          ) : (
-            "No data available"
-          )}
-              </Typography>
-            </CardContent>
-          </Card>
-           {/* Soil Moisture */}
-           <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Soil Moisture</Typography>
-              <Typography variant="body1">
-              {loading ? (
-            <CircularProgress size={24} />
-          ) : sensorData?.moisture !== -1 && sensorData?.moisture != null ? (
-            `${sensorData.moisture} %`
-          ) : (
-            "No data available"
-          )}              
-            </Typography>
-          
-            </CardContent>
-          </Card>
-           {/* Water Particulates */}
-           <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Water Particulates</Typography>
-              <Typography variant="body1">
+          <SensorCard
+            title="Water Temperature"
+            value={sensorData?.temperature ?? null}
+            unit="°C"
+            loading={loading}
+            chartType="sparkline"
+            chartData={waterTempData}
+            minThreshold={thresholds?.waterTemp?.min}
+            maxThreshold={thresholds?.waterTemp?.max}
+            deviceStatus={deviceStates?.extractorFanState ?? false}
+          />
 
-              {loading ? (
-            <CircularProgress size={24} />
-          ) : sensorData?.tdsSensor !== -1 && sensorData?.tdsSensor != null ? (
-            `${sensorData.tdsSensor} %`
-          ) : (
-            "No data available"
-          )}                  
-              </Typography>
-              
-            </CardContent>
-          </Card>
-         {/* Water PH */}
-         <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Water PH</Typography>
-              <Typography variant="body1">
-              
-              {loading ? (
-            <CircularProgress size={24} />
-          ) : sensorData?.ph !== -1 && sensorData?.ph != null ? (
-            `${sensorData.ph} pH`
-          ) : (
-            "No data available"
-          )}   
+          <SensorCard
+            title="Air Humidity"
+            value={sensorData?.humidity ?? null}
+            unit="%"
+            loading={loading}
+            chartType="sparkline"
+            chartData={humidityData}
+            minThreshold={thresholds?.humidity?.min}
+            maxThreshold={thresholds?.humidity?.max}
+            deviceStatus={deviceStates?.extractorFanState ?? false}
+          />
 
-              </Typography>
-            </CardContent>
-          </Card>
-           {/* RTC Timestamp */}
-           <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">RTC Timestamp</Typography>
-              <Typography variant="body1">
-              {sensorData?.realtime !== "Unavailable" && sensorData?.realtime != null ? `${sensorData.realtime.replace("T", " ")}` : "Loading"}
-               
-              </Typography>
-            </CardContent>
-          </Card>
-       
-        {/* Power Consumption */}
-        <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Power Consumption</Typography>
-              <Typography variant="body1">
-              Not Detected °C
-              </Typography>
-              <Typography variant="body2">
-                 {/* Additional logic for power consumption */}
-              </Typography>
-            </CardContent>
-          </Card>
+          <SensorCard
+            title="Soil Moisture"
+            value={sensorData?.moisture ?? null}
+            unit="%"
+            loading={loading}
+            chartType="sparkline"
+            chartData={moistureData}
+            minThreshold={thresholds?.minMoisture}
+            maxThreshold={thresholds?.maxMoisture}
+            deviceStatus={deviceStates?.moistureDevice ?? false}
+          />
 
-          {/* Power Consumption */}
-          <Card sx={{ minWidth: 200, margin: 1 }}>
-  <CardContent>
-    <Typography variant="h6">Water Pump</Typography>
-    <Typography variant="body1">
-      {controllerData?.pumpState !== undefined 
-        ? (controllerData.pumpState ? "On" : "Off") 
-        : "Loading"}
-    </Typography>
-    <Typography variant="body2">
-      {/* Optional: Add additional information, such as last run time */}
-    </Typography>
-    
-    {/* Moisture Threshold Settings */}
-    <Box mt={2}>
-      <Typography variant="subtitle1">Soil Moisture Settings</Typography>
-      
-      <Box display="flex" alignItems="center" mt={1}>
-        <Typography variant="body2" sx={{ minWidth: 90 }}>Min Moisture:</Typography>
-        <Slider
-          value={minMoisture}
-          onChange={handleMinMoistureChange}
-          aria-labelledby="min-moisture-slider"
-          valueLabelDisplay="auto"
-          min={0}
-          max={100}
-        />
-        <Typography variant="body2">{minMoisture}%</Typography>
-      </Box>
+          <SensorCard
+            title="Water Particulates"
+            value={sensorData?.tdsSens ?? null}
+            unit="%"
+            loading={loading}
+            chartType="sparkline"
+            chartData={TDSData}
+            minThreshold={thresholds?.tdsSens?.min}
+            maxThreshold={thresholds?.tdsSens?.max}
+            deviceStatus={deviceStates?.tdsSensDevice ?? false}
+          />
 
-      <Box display="flex" alignItems="center" mt={1}>
-        <Typography variant="body2" sx={{ minWidth: 90 }}>Max Moisture:</Typography>
-        <Slider
-          value={maxMoisture}
-          onChange={handleMaxMoistureChange}
-          aria-labelledby="max-moisture-slider"
-          valueLabelDisplay="auto"
-          min={0}
-          max={100}
-        />
-        <Typography variant="body2">{maxMoisture}%</Typography>
-      </Box>
-    </Box>
-    
-    <Button 
-      variant="contained" 
-      color="primary" 
-      onClick={handleSetMoistureThresholds}
-      sx={{ mt: 2 }}
-    >
-      Set Thresholds
-    </Button>
-  </CardContent>
-</Card>
+          <SensorCard
+            title="CO2 Levels"
+            value={sensorData?.CO2 ?? null}
+            unit="ppm"
+            loading={loading}
+            chartType="sparkline"
+            chartData={CO2Data}
+            minThreshold={thresholds?.minCO2}
+            maxThreshold={thresholds?.maxCO2}
+            deviceStatus={deviceStates?.intakeFanState ?? false}
+          />
 
-<SensorCard
-  title="Water Pump"
-  value={pumpState ? 'On' : 'Off'}
-  isLoading={loading}
-  switch={true}  // Render the Switch component
-  onSwitchChange={(checked) => {
-    // Handle switch toggle (e.g., update pumpState or API call)
-    console.log('Switch toggled:', checked);
-  }}
-  onButtonClick={handleSetMoistureThresholds}
-  buttonLabel="Toggle Pump"
-/>
+          <SensorCard
+            title="TVOC Levels"
+            value={sensorData?.TVOC ?? null}
+            unit="ppb"
+            loading={loading}
+            chartType="sparkline"
+            chartData={TVOCData}
+            minThreshold={thresholds?.TVOC?.min}
+            maxThreshold={thresholds?.TVOC?.max}
+            deviceStatus={deviceStates?.intakeFanState ?? false}
+          />
 
-      
-      <SensorCard
-        title="Soil Moisture Settings"
-        value="Adjust moisture levels"
-        settings={true}
-        sliderData={{
-          minMoisture,
-          maxMoisture,
-          handleMinMoistureChange,
-          handleMaxMoistureChange,
-        }}
-        onButtonClick={handleSetMoistureThresholds}
-        buttonLabel="Set Thresholds"
-      />
+          <SensorCard
+            title="Air Quality Index"
+            value={sensorData?.airquality ?? null}
+            unit=""
+            loading={loading}
+            chartType="sparkline"
+            chartData={airQualityData}
+            minThreshold={thresholds?.airquality?.min}
+            maxThreshold={thresholds?.airquality?.max}
+            deviceStatus={deviceStates?.intakeFanState ?? false}
+          />
 
+          <SensorCard
+            title="Soil PH"
+            value={sensorData?.soilph ?? null}
+            unit="pH"
+            loading={loading}
+            chartType="sparkline"
+            chartData={phData}
+            minThreshold={thresholds?.soilph?.min}
+            maxThreshold={thresholds?.soilph?.max}
+            deviceStatus={deviceStates?.phDevice ?? false}
+          />
+          <SensorCard
+            title="Nitrogen"
+            value={sensorData?.nitro ?? null}
+            unit="mg/kg"
+            loading={loading}
+            chartType="sparkline"
+            chartData={phData}
+            minThreshold={thresholds?.nitro?.min}
+            maxThreshold={thresholds?.nitro?.max}
+            deviceStatus={deviceStates?.phDevice ?? false}
+          />
+          <SensorCard
+            title="Phosphorus"
+            value={sensorData?.phos ?? null}
+            unit="mg/kg"
+            loading={loading}
+            chartType="sparkline"
+            chartData={phData}
+            minThreshold={thresholds?.phos?.min}
+            maxThreshold={thresholds?.phos?.max}
+            deviceStatus={deviceStates?.phDevice ?? false}
+          />
+            <SensorCard
+            title="Potassium"
+            value={sensorData?.potas ?? null}
+            unit="mg/kg"
+            loading={loading}
+            chartType="sparkline"
+            chartData={phData}
+            minThreshold={thresholds?.potas?.min}
+            maxThreshold={thresholds?.potas?.max}
+            deviceStatus={deviceStates?.phDevice ?? false}
+          />
 
+          <SensorCard
+            title="PAR"
+            value={sensorData?.total ?? null}
+            unit="µmol/m²/s"
+            loading={loading}
+            chartType="pie"
+            chartData={{
+              Blue:sensorData?.blue,
+              Green: sensorData?.green,
+              Red: sensorData?.red,
+              FarRed: sensorData?.FarRed,
+            }}
+            deviceStatus={deviceStates?.lights ?? false}
+          />
 
-<SensorCard
-        title="Extractor Fan Settings"
-        value="Adjust CO2 levels"
-        settings={true}
-        sliderData={{
-          minMoisture,
-          maxMoisture,
-          handleMinMoistureChange,
-          handleMaxMoistureChange,
-        }}
-        onButtonClick={handleSetMoistureThresholds}
-        buttonLabel="Set Thresholds"
-      />
-
-<SensorCard
-        title="Light Settings"
-        value="Adjust Light levels"
-        settings={true}
-        sliderData={{
-          minMoisture,
-          maxMoisture,
-          handleMinMoistureChange,
-          handleMaxMoistureChange,
-        }}
-        onButtonClick={handleSetMoistureThresholds}
-        buttonLabel="Set Thresholds"
-      />
-
-
-
-
-
-
-
-            {/* Power Consumption */}
-        <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Extractor Fan</Typography>
-              <Typography variant="body1">
-              {controllerData?.pumpState !== undefined 
-              ? (controllerData.pumpState ? "On" : "Off") 
-              : "Loading"}
-              </Typography>
-              <Typography variant="body2">
-                 {/* Additional logic for power consumption */}
-              </Typography>
-            </CardContent>
-          </Card>
-          
-                       {/* Power Consumption */}
-        <Card sx={{ minWidth: 200, margin: 1 }}>
-            <CardContent>
-              <Typography variant="h6">Extractor Fan</Typography>
-              <Typography variant="body1">
-              <Typography>Schedule:</Typography>
-    <Typography>On: 7:00 am</Typography>
-    <Typography>Off: 21:00 pm</Typography>
-              </Typography>
-              <Typography variant="body2">
-                 {/* Additional logic for power consumption */}
-              </Typography>
-            </CardContent>
-          </Card>
-
-        </Stack>
-      </Paper>
-
-    </SectionContent>
-  
-   
-    </SnackbarProvider>
+          <SensorCard
+            title="Plant Health (NDVI)"
+            value={sensorData?.ndvi ?? null}
+            unit=""
+            loading={loading}
+            chartType="circular"
+            progressValue={sensorData?.ndvi ? sensorData.ndvi * 100 : 0}
+            healthColor={(ndvi?) => {
+              if (ndvi == null) return 'gray';
+              if (ndvi < 20) return 'red';
+              if (ndvi < 40) return 'orange';
+              if (ndvi < 60) return 'yellow';
+              if (ndvi < 80) return 'lightgreen';
+              return 'green';
+            }}
+            minThreshold={thresholds?.airquality?.min}
+            maxThreshold={thresholds?.airquality?.max}
+            deviceStatus={deviceStates?.lights ?? false}
+          />
+          <SensorCard
+            title="Greenlight Intensity"
+            value={sensorData?.greenIntensity ?? null}
+            unit="lux"
+            loading={loading}
+            chartType="circular"
+            progressValue={sensorData?.greenIntensity}
+            minThreshold={thresholds?.greenlight?.min}
+            maxThreshold={thresholds?.greenlight?.max}
+            deviceStatus={deviceStates?.greenlightDevice ?? false}
+          />
+        </Box>
+      </SnackbarProvider>
     </CustomTheme>
   );
 };
-
-
 
 export default Dashboard;

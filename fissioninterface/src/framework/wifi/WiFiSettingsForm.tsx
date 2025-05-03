@@ -94,7 +94,7 @@ const WiFiSettingsForm: FC = () => {
 
 
     return (
-      <>
+      <SectionContent title="Wifi Configuration">
         {
           selectedNetwork ?
             <List>
@@ -220,7 +220,7 @@ const WiFiSettingsForm: FC = () => {
             Save
           </Button>
         </ButtonRow>
-      </>
+        </SectionContent>
     );
 
 

@@ -13,22 +13,20 @@ float SensorTDS::getTDS() const {
 void SensorTDS::begin() {
   // _state.temperature = 999;
   // Serial.println(F("Init temperature sensor"));
-  Serial.print("Starting TDS sensor...");
+  Serial.println("Starting TDS sensor...");
   readSensor();
  
 }
 
 void SensorTDS::loop() {
-    unsigned long currentMillis = millis();
-  if (currentMillis - _lastReading >= TDSInterval) {
-        _lastReading = currentMillis;
+ 
         readSensor(); // Update pH
-    }
+   
 }
 
 void SensorTDS::readSensor() {
   float tds = analogRead(A1) / 40.95;  // convert to %
-  Serial.print(F("TDS: "));
+  Serial.println(F("TDS: "));
   Serial.println(tds);
   _state.tds = tds;
 }

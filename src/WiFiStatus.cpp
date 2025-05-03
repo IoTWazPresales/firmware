@@ -1,5 +1,4 @@
 #include <WiFiStatus.h>
-
 WiFiStatus::WiFiStatus(AsyncWebServer* server) {
   server->on(WIFI_STATUS_SERVICE_PATH, HTTP_GET, [this](AsyncWebServerRequest *request) {
     wifiStatus(request);
@@ -14,13 +13,14 @@ void WiFiStatus::onStationModeConnected(WiFiEvent_t event, WiFiEventInfo_t info)
 }
 
 void WiFiStatus::onStationModeDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
-  Serial.print(F("WiFi Disconnected. Reason code="));
+  Serial.println(F("WiFi Disconnected. Reason code="));
   Serial.println(info.wifi_sta_disconnected.reason);
 }
 
 void WiFiStatus::onStationModeGotIP(WiFiEvent_t event, WiFiEventInfo_t info) {
-  Serial.printf_P(
-      PSTR("WiFi Got IP. localIP=%s, hostName=%s\r\n"), WiFi.localIP().toString().c_str(), WiFi.getHostname());
+  Serial.println("WiFi Got IP. localIP=%s, hostName=%s\r\n");
+      Serial.println(WiFi.localIP().toString().c_str());
+      Serial.println(WiFi.getHostname());
 }
 
 void WiFiStatus::wifiStatus(AsyncWebServerRequest* request) {

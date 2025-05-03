@@ -1,9 +1,8 @@
 #ifndef SensorTDS_h
 #define SensorTDS_h
-
+#include <WiFi.h>
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
-
 class SensorTDS {
  public:
   SensorTDS(AsyncWebServer* server);

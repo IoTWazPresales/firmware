@@ -19,7 +19,7 @@ WiFiSettingsService::WiFiSettingsService(AsyncWebServer* server) : _server(serve
 }
 
 void WiFiSettingsService::begin() {
-   if (WiFi.status() != WL_CONNECTED) {
+  if (WiFi.status() != WL_CONNECTED) {
     reconfigureWiFiConnection();
   }
 }
@@ -32,6 +32,8 @@ void WiFiSettingsService::loop() {
     _lastConnectionAttempt = currentMillis;
     manageSTA();
   }
+  Serial.println("WiFi Status: " + String(WiFi.status()));
+  delay(1000); // Add delay to avoid flooding Serial
 }
 
 void WiFiSettingsService::WiFiSettings::fromJson(JsonObject& root) {
@@ -61,7 +63,18 @@ void WiFiSettingsService::WiFiSettings::toJson(JsonObject& root) const {
 }
 
 void WiFiSettingsService::loadSettings() {
-  // Load WiFi settings from file (pseudo-code for file operations)
+  _settings.ssid = "9532828 [2Ghz]";    // Your network SSID
+  _settings.password = "0611401627";    // Your network password
+  _settings.hostname = "ESP32_Device";   // Device hostname
+  _settings.staticIPConfig = false;      // Use DHCP
+  Serial.println("Loaded SSID: " + _settings.ssid);
+  Serial.println("Loaded Password: " + _settings.password);
+  // Optional: Add static IP settings if needed later
+  // _settings.localIP = IPAddress(192, 168, 1, 100);
+  // _settings.gatewayIP = IPAddress(192, 168, 1, 1);
+  // _settings.subnetMask = IPAddress(255, 255, 255, 0);
+  // _settings.dnsIP1 = IPAddress(8, 8, 8, 8);
+  // _settings.dnsIP2 = IPAddress(8, 8, 4, 4);  // Load WiFi settings from file (pseudo-code for file operations)
 }
 
 void WiFiSettingsService::saveSettings() {
@@ -82,18 +95,21 @@ if (WiFi.status() == WL_CONNECTED) {
 }
 
 void WiFiSettingsService::manageSTA() {
-  if (WiFi.isConnected() || _settings.ssid.isEmpty()) return;
-
-  if ((WiFi.getMode() & WIFI_STA) == 0) {
-    Serial.println(F("Connecting to WiFi."));
-    if (_settings.staticIPConfig) {
-      WiFi.config(_settings.localIP, _settings.gatewayIP, _settings.subnetMask, _settings.dnsIP1, _settings.dnsIP2);
-    } else {
-      WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
-      WiFi.setHostname(_settings.hostname.c_str());
-    }
-    WiFi.begin(_settings.ssid.c_str(), _settings.password.c_str());
+  Serial.println("manageSTA called");
+  if (WiFi.isConnected()) {
+    Serial.println("Already connected");
+    return;
   }
+  if (_settings.ssid.isEmpty()) {
+    Serial.println("SSID is empty");
+    return;
+  }
+
+  WiFi.mode(WIFI_STA);
+  Serial.println("Set WiFi mode to STA");
+  Serial.println("Connecting to WiFi: " + _settings.ssid);
+  WiFi.begin(_settings.ssid.c_str(), _settings.password.c_str());
+  Serial.println("WiFi.begin called");
 }
 
 void WiFiSettingsService::handleSettingsRequest(AsyncWebServerRequest* request) {

@@ -1,6 +1,6 @@
 # ESP8266 React
 
-[![Build Status](https://travis-ci.org/rjwats/esp8266-react.svg?branch=master)](https://travis-ci.org/rjwats/esp8266-react)
+[![Build Status](https://travis-ci.org/rjwats/esp8266-react.svg?branch=master)](https://tradavis-ci.org/rjwats/esp8266-react)
 
 A simple, secure and extensible framework for IoT projects built on ESP8266/ESP32 platforms with responsive [React](https://reactjs.org/) front-end built with [Material-UI](https://mui.com/).
 
@@ -407,8 +407,8 @@ You may listen for changes to state by registering an update handler callback. I
 // register an update handler
 update_handler_id_t myUpdateHandler = lightStateService.addUpdateHandler(
   [&](const String& originId) {
-    Serial.print("The light's state has been updated by: "); 
-    Serial.println(originId); 
+    SerialOTA.println("The light's state has been updated by: "); 
+    SerialOTA.println(originId); 
   }
 );
 
@@ -633,8 +633,8 @@ Inspect the current WiFi settings:
 
 ```cpp
 esp8266React.getWiFiSettingsService()->read([&](WiFiSettings& wifiSettings) {
-  Serial.print("The ssid is:");
-  Serial.println(wifiSettings.ssid);
+  SerialOTA.println("The ssid is:");
+  SerialOTA.println(wifiSettings.ssid);
 });
 ```
 
@@ -653,7 +653,7 @@ Observe changes to the WiFiSettings:
 ```cpp
 esp8266React.getWiFiSettingsService()->addUpdateHandler(
   [&](const String& originId) {
-    Serial.println("The WiFi Settings were updated!");
+    SerialOTA.println("The WiFi Settings were updated!");
   }
 );
 ```

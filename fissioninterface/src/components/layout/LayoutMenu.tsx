@@ -2,6 +2,7 @@ import { FC, useContext } from 'react';
 
 import { Divider, List } from '@mui/material';
 import SettingsRemoteIcon from '@mui/icons-material/SettingsRemote';
+import SensorsIcon from '@mui/icons-material/Sensors';
 import { Dashboard } from '@mui/icons-material';
 import SettingsInputAntennaIcon from '@mui/icons-material/SettingsInputAntenna';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -23,6 +24,7 @@ const LayoutMenu: FC = () => {
         <LayoutMenuItem icon={Dashboard} label="Dashboard" to={`/dashboard`} />
         <LayoutMenuItem icon={Dataset} label="Control Panel" to={`/controlpanel`} />
         <LayoutMenuItem icon={WifiIcon} label="WiFi Connection" to="/wifi" />
+        <LayoutMenuItem icon={SensorsIcon} label="Devices" to="/Devices" />
         <LayoutMenuItem icon={SettingsInputAntennaIcon} label="Access Point" to="/ap" />
         <LayoutMenuItem icon={SettingsIcon} label="System" to="/system" />
       </List>

@@ -10,7 +10,7 @@
 
 #define WIFI_SETTINGS_FILE "/config/wifiSettings.json"
 #define WIFI_SETTINGS_SERVICE_PATH "/api/wifiSettings"
-#define WIFI_RECONNECTION_DELAY 1000 * 30
+#define WIFI_RECONNECTION_DELAY 5000
 
 class WiFiSettingsService {
  public:

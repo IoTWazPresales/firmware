@@ -9,6 +9,7 @@
 #include <AsyncJson.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPFS.h>
+#include <LittleFS.h>
 
 #define MAX_ESP_STATUS_SIZE 1024
 #define SYSTEM_STATUS_SERVICE_PATH "/api/systemStatus"

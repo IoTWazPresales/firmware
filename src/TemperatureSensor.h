@@ -8,7 +8,7 @@
 
 class TemperatureSensor {
 public:
-    explicit TemperatureSensor(AsyncWebServer* server); // Only keep the server constructor
+    TemperatureSensor(AsyncWebServer* server); // Only keep the server constructor
 
     void begin();
     void loop();

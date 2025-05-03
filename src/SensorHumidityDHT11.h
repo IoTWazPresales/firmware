@@ -4,34 +4,28 @@
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
 #include <ArduinoJson.h>
+#include <ESPAsyncWebServer.h>
 
+class SensorHumidityDHT11 {
+public:
+    SensorHumidityDHT11(AsyncWebServer* server, uint8_t pin = 0, uint8_t type = DHT11);
+    void setPin(uint8_t pin); // New method to set pin dynamically
+    void begin();
+    void loop();
+    void readSensor();
+    float getHumidity() const;
+    float getAirTemperature() const;
 
-class S_H_DHT11State {
- public:
-  float airtemperature;
-  float airhumidity;
-
-  /*static void read(S_H_DHT11State& settings, JsonObject& root) {
-    root["airtemperature"] = settings.airtemperature;
-    root["airhumidity"] = settings.airhumidity;
-  }*/
-};
-
-class SensorHumidityDHT11{
- public:
-  SensorHumidityDHT11(uint8_t pin, uint8_t type) : _dht(pin, type) {}
-
-  void begin();
-  void loop();
-  void readSensor();
-
- private:
-  DHT _dht;
-
-  unsigned long _lastReading = 0;
-
-  void registerConfig();
-  void onConfigUpdated();
+private:
+    struct SensorState {
+        float humidity;
+        float airtemp;
+    } _state;
+    DHT _dht;
+    AsyncWebServer* _server;
+    uint8_t _pin; // Store the pin number
+    const unsigned long DHTInterval = 5000;
+    unsigned long _lastReading = 0;
 };
 
 #endif

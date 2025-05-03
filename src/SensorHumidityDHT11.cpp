@@ -1,42 +1,53 @@
-#include <SensorHumidityDHT11.h>
+#include "SensorHumidityDHT11.h"
+
+SensorHumidityDHT11::SensorHumidityDHT11(AsyncWebServer* server, uint8_t pin, uint8_t type)
+    : _dht(pin, type), _server(server), _pin(pin), _lastReading(0) {
+    _state.humidity = -1;
+    _state.airtemp = -1;
+}
+
+void SensorHumidityDHT11::setPin(uint8_t pin) {
+    if (_pin != pin) {
+        _pin = pin;
+        _dht = DHT(_pin, DHT11); // Reinitialize DHT with new pin
+        Serial.printf("DHT11 reassigned to GPIO %d\n", _pin);
+    }
+}
+
+float SensorHumidityDHT11::getAirTemperature() const {
+    return _state.airtemp;
+}
+
+float SensorHumidityDHT11::getHumidity() const {
+    return _state.humidity;
+}
 
 void SensorHumidityDHT11::begin() {
-  // _state.temperature = 999;
-  // Serial.println(F("Init temperature sensor"));
-  Serial.print("Starting DHT11 sensor...");
-  _dht.begin();
-  Serial.println("finished!");
-  readSensor();
-  onConfigUpdated();
+    Serial.printf("Starting DHT11 sensor on GPIO %d...\n", _pin);
+    _dht.begin();
+    Serial.println("finished!");
+    readSensor();
 }
 
 void SensorHumidityDHT11::loop() {
-  unsigned long currentMillis = millis();
-  unsigned long manageElapsed = (unsigned long)(currentMillis - _lastReading);
-
-  if (manageElapsed >= 5000) {
-    _lastReading = currentMillis;
     readSensor();
-
-  }
 }
 
 void SensorHumidityDHT11::readSensor() {
-  // Serial.println(F("Polling temperature sensors"));
-  float airhumidity = _dht.readHumidity();
-  float airtemperature = _dht.readTemperature();
+    if (millis() - _lastReading >= DHTInterval) {
+        float airhumidity = _dht.readHumidity();
+        float airtemperature = _dht.readTemperature();
 
-  if (!isnan(airhumidity) && !isnan(airtemperature)) {
-    Serial.print(F("DHT11 HUMIDITY: "));
-    Serial.println(airhumidity);
-    Serial.print(F("DHT11 TEMPERATURE: "));
-    Serial.println(airtemperature);
-
-  } else {
-    Serial.println(F("DHT11 ERROR"));
-  }
-}
-
-void SensorHumidityDHT11::onConfigUpdated() {
-  // digitalWrite(LED_PIN, _state.ledOn ? LED_ON : LED_OFF);
+        if (!isnan(airhumidity) && !isnan(airtemperature)) {
+            Serial.println(F("DHT11 HUMIDITY: "));
+            _state.humidity = airhumidity;
+            Serial.println(airhumidity);
+            Serial.println(F("DHT11 TEMPERATURE: "));
+            _state.airtemp = airtemperature;
+            Serial.println(airtemperature);
+        } else {
+            Serial.println(F("DHT11 ERROR"));
+        }
+        _lastReading = millis();
+    }
 }

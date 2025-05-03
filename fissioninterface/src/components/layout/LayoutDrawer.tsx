@@ -45,15 +45,14 @@ const LayoutDrawer: FC<LayoutDrawerProps> = ({ mobileOpen, onClose }) => {
             flexDirection: 'column',
             width: '100%',
             height: '100vh',
-            filter: 'invert(100%) brightness(1000%) contrast(1000%)',
             padding: 5,
             flexWrap:'wrap',
             alignItems: 'center',
-            justifyContent: 'center'
-            
+            justifyContent: 'center',
+            overflow: 'hidden'
           }}
         >
-          <img style={{ padding: 5, height: 200 }} src="/media/FissionLogo_SkyBlue.png" alt="Fission" />
+          <img style={{ padding: 5, height: 200 }} src="/media/FissionLogo_SkyBlue.svg" alt="Fission" />
         </div>
 
     </>

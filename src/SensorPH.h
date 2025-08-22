@@ -1,26 +1,29 @@
-#ifndef SensorPH_h
-#define SensorPH_h
+// SensorPH.h
+#ifndef SENSOR_PH_H
+#define SENSOR_PH_H
 
+#include <Arduino.h>
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
-#include <OneWire.h>
 
 class SensorPH {
 public:
-   
- SensorPH(AsyncWebServer* server);
+    SensorPH(AsyncWebServer* server, int pin = -1);
     void begin();
     void loop();
-    void readSensor();
-    float getPH() const; // Getter for pH value
+    float getPH() const;
+    void setPin(int pin);
+    int getPin() const;
+
 private:
-    struct SensorState {
-        float ph; // pH value
+    bool isValidADCPin(int pin) const;
+    struct {
+        float ph;
     } _state;
-      AsyncWebServer* _server;
-    OneWire _ds = OneWire(D2);
-    unsigned long _lastReading = 0;
-    const unsigned long pHInterval = 5000;  // Interval in milliseconds
+    AsyncWebServer* _server;
+    int _pin;
+    unsigned long _lastReading;
+    const unsigned long _phInterval = 5000;
 };
 
 #endif

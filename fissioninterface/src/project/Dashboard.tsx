@@ -6,7 +6,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import SensorCard from '../components/SensorCard';
 import CustomTheme from '../CustomTheme';
 import SensorService from '../api/SensorService';
-import ControllerService from '../api/ControllerService';
+import { fetchThresholds, getDeviceStates } from '../api/ControllerService';
 
 const Dashboard: FC = () => {
   const { enqueueSnackbar } = useSnackbar();
@@ -31,8 +31,8 @@ const Dashboard: FC = () => {
       try {
         const [sensorResponse, thresholdsResponse, devicesResponse] = await Promise.all([
           SensorService.getSensorData(),
-          ControllerService.getThresholds(),
-          ControllerService.getDeviceStates(),
+          fetchThresholds(),
+        getDeviceStates(),
         ]);
 
         setSensorData(sensorResponse);
@@ -79,8 +79,6 @@ const Dashboard: FC = () => {
           </IconButton>
         )}
       >
-        <Alert severity="error">Soil moisture too low, please switch on water pump.</Alert>
-
         <Box
           sx={{
             display: 'grid',

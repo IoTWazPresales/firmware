@@ -1,29 +1,29 @@
-#ifndef SensorTDS_h
-#define SensorTDS_h
-#include <WiFi.h>
+// SensorTDS.h
+#ifndef SENSOR_TDS_H
+#define SENSOR_TDS_H
+
+#include <Arduino.h>
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
+
 class SensorTDS {
- public:
-  SensorTDS(AsyncWebServer* server);
-  void begin();
-  void loop();
-  void readSensor();
-    float getTDS() const; // Getter for pH value
+public:
+    SensorTDS(AsyncWebServer* server, int pin = -1);
+    void begin();
+    void loop();
+    float getTDS() const;
+    void setPin(int pin);
+    int getPin() const;
 
- private:
-    struct SensorState {
-        float tds; // pH value
+private:
+    bool isValidADCPin(int pin) const;
+    struct {
+        float tds;
     } _state;
-      AsyncWebServer* _server;
-        unsigned long _lastReading = 0;
-    const unsigned long TDSInterval = 5000;  // Interval in milliseconds
-
-
-  
+    AsyncWebServer* _server;
+    int _pin;
+    unsigned long _lastReading;
+    const unsigned long _tdsInterval = 5000;
 };
 
 #endif
-
-
-

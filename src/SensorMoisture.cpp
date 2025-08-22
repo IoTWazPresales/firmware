@@ -1,38 +1,30 @@
-#ifndef SENSOR_MOISTURE_H
-#define SENSOR_MOISTURE_H
-#include <SensorMoisture.h>
+#include "SensorMoisture.h"
 
-SensorMoisture::SensorMoisture(AsyncWebServer* server) : _server(server), _lastReading(0) {
-    _state.moisture = -1; // Initialize the pH value
+SensorMoisture::SensorMoisture(AsyncWebServer* server, uint8_t pin)
+    : _server(server), _pin(pin), _moisture(0.0), _lastReading(0) {
 }
-
-float SensorMoisture::getMoisture() const {
-    return _state.moisture;
-}
-
-
-
 
 void SensorMoisture::begin() {
-  // _state.temperature = 999;
-  // Serial.println(F("Init temperature sensor"));
-  Serial.println("Starting Moisture sensor...");
-  readSensor();
- 
+    pinMode(_pin, INPUT);
+    _server->on("/api/sensor/moisture", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        String json = "{\"moisture\":" + String(_moisture, 2) + "}";
+        request->send(200, "application/json", json);
+    });
 }
 
 void SensorMoisture::loop() {
+    if (millis() - _lastReading < _interval) return;
+    _lastReading = millis();
 
-    readSensor();
-   
- 
+    int rawValue = analogRead(_pin);
+    // Map raw ADC (0-4095) to moisture percentage (0-100%)
+    // Adjust based on your sensor's dry/wet calibration
+    _moisture = map(rawValue, 4095, 0, 0, 100); // Dry: ~4095, Wet: ~0
+    _moisture = constrain(_moisture, 0.0, 100.0);
+
+    Serial.printf("Moisture: %.2f%%\n", _moisture);
 }
 
-void SensorMoisture::readSensor() {
-  float moisture = (4095.0 - analogRead(A2)) / 40.95;  // convert to %
-  Serial.println(F("MOISTURE: "));
-  Serial.println(moisture);
-  _state.moisture = moisture;
+float SensorMoisture::getMoisture() const {
+    return _moisture;
 }
-
-#endif

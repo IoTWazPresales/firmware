@@ -1,36 +1,51 @@
-#include <SensorTDS.h>
+// SensorTDS.cpp
+#include "SensorTDS.h"
 
+SensorTDS::SensorTDS(AsyncWebServer* server, int pin) 
+    : _server(server), _pin(pin), _lastReading(0) {
+    _state.tds = -1;
+}
 
+bool SensorTDS::isValidADCPin(int pin) const {
+    // Valid ADC pins: GPIO36 (A0), 39 (A1), 34 (A2), 35 (A3), 15 (A4)
+    return pin == 36 || pin == 39 || pin == 34 || pin == 35 || pin == 15;
+}
 
-SensorTDS::SensorTDS(AsyncWebServer* server) : _server(server), _lastReading(0) {
-    _state.tds = -1; // Initialize the pH value
+void SensorTDS::begin() {
+    if (_pin == -1 || !isValidADCPin(_pin)) {
+        Serial.printf("TDS sensor invalid or unassigned pin (GPIO %d)\n", _pin);
+        return;
+    }
+    Serial.printf("Starting TDS sensor on GPIO %d...\n", _pin);
+    pinMode(_pin, INPUT);
+    loop();
+}
+
+void SensorTDS::loop() {
+    if (_pin == -1 || !isValidADCPin(_pin)) return;
+    unsigned long currentMillis = millis();
+    if (currentMillis - _lastReading >= _tdsInterval) {
+        float tds = analogRead(_pin) / 40.95; // Convert to %
+        _state.tds = tds;
+        Serial.printf("TDS: %.2f%%\n", tds);
+        _lastReading = currentMillis;
+    }
 }
 
 float SensorTDS::getTDS() const {
     return _state.tds;
 }
 
-void SensorTDS::begin() {
-  // _state.temperature = 999;
-  // Serial.println(F("Init temperature sensor"));
-  Serial.println("Starting TDS sensor...");
-  readSensor();
- 
+void SensorTDS::setPin(int pin) {
+    _pin = pin;
+    if (_pin != -1 && isValidADCPin(_pin)) {
+        pinMode(_pin, INPUT);
+        Serial.printf("TDS sensor reassigned to GPIO %d\n", _pin);
+    } else {
+        Serial.printf("Invalid ADC pin for TDS sensor: GPIO %d\n", _pin);
+    }
 }
 
-void SensorTDS::loop() {
- 
-        readSensor(); // Update pH
-   
+int SensorTDS::getPin() const {
+    return _pin;
 }
-
-void SensorTDS::readSensor() {
-  float tds = analogRead(A1) / 40.95;  // convert to %
-  Serial.println(F("TDS: "));
-  Serial.println(tds);
-  _state.tds = tds;
-}
-
-
-
-

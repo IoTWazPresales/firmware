@@ -1,45 +1,17 @@
-#ifndef RELAY_CONTROL_ENDPOINT_H
-#define RELAY_CONTROL_ENDPOINT_H
-
-#include <Arduino.h>
+#pragma once
 #include <ESPAsyncWebServer.h>
-#include <ArduinoJson.h>
-#include "RelayControl.h"
+#include "SupabaseConnector.h"
+class RelayControl;
 
 class RelayControlEndpoint {
 public:
-    RelayControlEndpoint(AsyncWebServer* server, 
-                         RelayControl* waterPump, 
-                         RelayControl* intakeFan, 
-                         RelayControl* exhaustFan, 
-                         RelayControl* setPumpThreshold,
-                         RelayControl* setIntakeThreshold,
-                         RelayControl* setExhaustTempThreshold,
-                         RelayControl* setExhaustHumidityThreshold);
-
-    void handleRelayData();
-
+    RelayControlEndpoint(AsyncWebServer* server, RelayControl* relayControl, SupabaseConnector* supabase = nullptr);
 private:
-    bool validateThresholds(DynamicJsonDocument& doc, AsyncWebServerRequest* request);
+  AsyncWebServer* _server;
+  RelayControl*   _relayControl;
+      SupabaseConnector* _supabase;
 
-    AsyncWebServer* _server;
-    RelayControl* _setPumpThreshold;
-    RelayControl* _setIntakeThreshold;
-    RelayControl* _setExhaustTempThreshold;
-    RelayControl* _setExhaustHumidityThreshold;
-    RelayControl* _waterPump;
-    RelayControl* _intakeFan;
-    RelayControl* _exhaustFan;
+  void handleRelayData();
+      void syncRelayStateToSupabase();
 
-    // Member variables for the thresholds (optional, if you need to store them separately)
-    float _minMoisture;
-    float _maxMoisture;
-    float _minTemp;
-    float _maxTemp;
-    float _minHumi;
-    float _maxHumi;
-    float _minCO2;
-    float _maxCO2;
 };
-
-#endif // RELAY_CONTROL_ENDPOINT_H

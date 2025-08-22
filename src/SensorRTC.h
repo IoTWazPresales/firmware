@@ -1,37 +1,28 @@
-#ifndef SensorRTC_h
-#define SensorRTC_h
+// SensorRTC.h
+#ifndef SENSOR_RTC_H
+#define SENSOR_RTC_H
 
-#include <string>
-#include <Adafruit_BusIO_Register.h>
-#include <RTClib.h>
+#include <Arduino.h>
 #include <ArduinoJson.h>
+#include <RTClib.h>
 #include <ESPAsyncWebServer.h>
 
-
-  
-
-
 class SensorRTC {
- public:
+public:
+    SensorRTC(AsyncWebServer* server);
+    void begin();
+    void loop();
+    String getRTC() const;
 
-  SensorRTC(AsyncWebServer* server);
-  void begin();
-  void loop();
-  void readSensor();
-  String getRTC() const;
-
- private:
-
-struct SensorState {
-        String rtc; // pH value
-        String timestamp;
+private:
+    struct {
+        String rtc;
     } _state;
-      AsyncWebServer* _server;
-        unsigned long _lastReading = 0;
-    const unsigned long RTCInterval = 5000;  // Interval in milliseconds
-  RTC_DS3231 _rtc;
-  bool _rtcAvailable;
-
- };
+    AsyncWebServer* _server;
+    RTC_DS3231 _rtc;
+    bool _rtcAvailable;
+    unsigned long _lastReading;
+    const unsigned long _rtcInterval = 5000;
+};
 
 #endif

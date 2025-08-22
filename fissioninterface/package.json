@@ -32,12 +32,14 @@
     "react-scripts": "5.0.1",
     "react-sparklines-typescript": "^1.3.0",
     "sockette": "^2.0.6",
+    "sonner": "^2.0.5",
     "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
   },
+  "proxy": "http://neurogrow.local:80",
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build && mv build/static/* build/ && rmdir build/static",
+    "build": "react-scripts build && copyfiles -u 2 \"build/static/**/*\" build && rimraf build/static",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -61,7 +63,9 @@
   },
   "devDependencies": {
     "@types/history": "^4.7.11",
+    "copyfiles": "^2.4.1",
     "mini-css-extract-plugin": "^2.9.1",
+    "rimraf": "^6.0.1",
     "webpack-manifest-plugin": "^5.0.0"
   }
 }

@@ -1,205 +1,313 @@
+// src/components/Devices.tsx
+
 import React, { FC, useEffect, useState } from 'react';
 import '../App.css';
 import { SnackbarProvider, useSnackbar } from 'notistack';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Paper,
-    Select,
-    MenuItem,
-    Button,
-    Box,
-    Typography,
-    Chip,
+  Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Paper, Select, MenuItem,
+  Button, Box, Typography, Chip,
 } from '@mui/material';
-import { fetchScannedDevices } from '../api/DeviceScannerService';
-import { fetchSensorAssignments, saveSensorAssignment } from '../api/DeviceConfigService';
 
-// Predefined ports with their corresponding pins
-const PORTS = [
-    { port: 'Port 1', pin: 'D2' },  // GPIO 25
-    { port: 'Port 2', pin: 'D3' },  // GPIO 26
-    { port: 'Port 3', pin: 'D5' },  // GPIO 0
-    { port: 'Port 4', pin: 'D6' },  // GPIO 14
-    { port: 'Port 5', pin: 'D7' },  // GPIO 13
-    { port: 'Port 6', pin: 'D9' },  // GPIO 2
+import {
+  fetchScannedDevices,
+  triggerScan,
+  ScanResults,
+  DigitalPin,
+  AnalogPin,
+} from '../api/DeviceScannerService';
+
+import {
+  fetchSensorAssignments,
+  saveAllSensorAssignments,
+  resetSensorAssignments,
+} from '../api/DeviceConfigService';
+
+const ANALOG_PORTS = [
+  { label: "J1", pin: 36, key: "A0" },
+  { label: "J2", pin: 39, key: "A1" },
+  { label: "J3", pin: 34, key: "A2" },
+  { label: "J4", pin: 35, key: "A3" },
 ];
 
-// Available sensor types
+const DIGITAL_PORTS = [
+  { label: "J5",  pin: 25, key: "D2"  },
+  { label: "J6",  pin: 26, key: "D3"  },
+  { label: "J7",  pin:  0, key: "D5"  },
+  { label: "J8",  pin: 14, key: "D6"  },
+  { label: "J9",  pin: 13, key: "D7"  },
+  { label: "J10", pin:  2, key: "D9"  },
+  { label: "J11", pin:  4, key: "D12" },
+  { label: "J12", pin: 12, key: "D13" },
+];
+
+const I2C_PORTS = [
+  { label: 'J1', key: 'J1' },
+  { label: 'J2', key: 'J2' },
+  { label: 'J3', key: 'J3' },
+  { label: 'J4', key: 'J4' },
+];
+
 const SENSOR_TYPES = [
-    { value: '', label: 'None' },
-    { value: 'airTempHumidity', label: 'Air Temperature and Humidity (DHT11)' },
-    { value: 'soilMoisture', label: 'Soil Moisture' },
-    { value: 'ph', label: 'pH Sensor' },
-    { value: 'tds', label: 'TDS Sensor' },
-    { value: 'temperature', label: 'Temperature (DS18B20)' },
-    { value: 'npk', label: 'NPK Sensor' },
-    { value: 'airQuality', label: 'Air Quality (ENS160)' },
-    { value: 'spectral', label: 'Spectral Sensor (AS7341)' },
-    { value: 'rtc', label: 'Real-Time Clock (DS3231)' },
+  { value: '',                label: 'None' },
+  { value: 'airTempHumidity', label: 'DHT11 (Air Temp & Humidity)' },
+  { value: 'soilMoisture',    label: 'Soil Moisture' },
+  { value: 'ph',              label: 'pH Sensor' },
+  { value: 'tds',             label: 'TDS Sensor' },
+  { value: 'temperature',     label: 'DS18B20 Temp' },
+  { value: 'npk',             label: 'NPK Sensor' },
+  { value: 'airQuality',      label: 'ENS160 Air Quality' },
+  { value: 'spectral',        label: 'AS7341 Spectral' },
+  { value: 'rtc',             label: 'DS3231 RTC' },
 ];
 
 const Devices: FC = () => {
-    const { enqueueSnackbar } = useSnackbar();
-    const [devices, setDevices] = useState<any | null>(null);
-    const [loadingScan, setLoadingScan] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
-    const [assignments, setAssignments] = useState<{ [key: string]: string }>(
-        PORTS.reduce((acc, port) => ({ ...acc, [port.pin]: '' }), {})
-    );
+  const { enqueueSnackbar } = useSnackbar();
+  const [scan, setScan] = useState<ScanResults>({
+    i2cDevices: [], digitalPins: [], analogPins: []
+  });
+  const [assignments, setAssignments] = useState<Record<string,string>>(() => {
+    const init: Record<string,string> = {};
+    I2C_PORTS.forEach(p => { init[p.key] = ''; });
+    return init;
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    // Load saved assignments and scan for devices
-    useEffect(() => {
-        const loadAssignments = async () => {
-            try {
-                const savedAssignments = await fetchSensorAssignments();
-                setAssignments((prev) => ({
-                    ...prev,
-                    ...savedAssignments,
-                }));
-            } catch (err: any) {
-                console.error('Error loading assignments:', err.message, err);
-                enqueueSnackbar('Could not load saved assignments. Using defaults.', { variant: 'warning' });
-            }
-        };
+  // load saved assignments once
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await fetchSensorAssignments();
+        setAssignments(prev => ({ ...prev, ...saved }));
+      } catch {
+        enqueueSnackbar('Could not load saved assignments.', { variant: 'warning' });
+      }
+    })();
+  }, [enqueueSnackbar]);
 
-        const scanDevices = async () => {
-            setLoadingScan(true);
-            try {
-                const data = await fetchScannedDevices();
-                console.log('Scanned devices:', data);
-                setDevices(data);
-                setAssignments((prev) => {
-                    const updated = { ...prev };
-                    PORTS.forEach((port) => {
-                        const isDetected = data?.digitalPins?.some((device: any) => device.pin === port.pin);
-                        if (!isDetected && updated[port.pin]) {
-                            updated[port.pin] = '';
-                            enqueueSnackbar(`Sensor on ${port.port} (${port.pin}) was removed.`, { variant: 'info' });
-                        }
-                    });
-                    return updated;
-                });
-            } catch (err: any) {
-                console.error('Error scanning devices:', err.message, err);
-                setError('Could not scan devices. Ports shown as not detected.');
-                enqueueSnackbar('Could not scan devices. Check server connection.', { variant: 'warning' });
-            } finally {
-                setLoadingScan(false);
-            }
-        };
+  // keep assignment keys in sync
+  useEffect(() => {
+    setAssignments(prev => {
+      const upd = { ...prev };
+      scan.digitalPins.forEach((p: DigitalPin) => {
+        if (!(p.key in upd)) upd[p.key] = '';
+      });
+      scan.analogPins.forEach((p: AnalogPin) => {
+        if (!(p.key in upd)) upd[p.key] = '';
+      });
+      return upd;
+    });
+  }, [scan.digitalPins, scan.analogPins]);
 
-        loadAssignments();
-        scanDevices();
-        const interval = setInterval(scanDevices, 30000);
-        return () => clearInterval(interval);
-    }, [enqueueSnackbar]);
+  // just fetch the *last* scan (fast)
+  const doScan = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchScannedDevices();
+      setScan(data);
+      setError(null);
+    } catch {
+      setError('Could not fetch scan results.');
+      enqueueSnackbar('Failed to fetch devices.', { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // Handle sensor assignment changes
-    const handleAssignmentChange = (pin: string, value: string) => {
-        setAssignments((prev) => ({ ...prev, [pin]: value }));
-    };
+  // POST + fetch for manual “Scan Now”
+  const handleTrigger = async () => {
+    setLoading(true);
+    try {
+      await triggerScan();
+      const data = await fetchScannedDevices();
+      setScan(data);
+      enqueueSnackbar('Scan complete!', { variant: 'success' });
+    } catch {
+      enqueueSnackbar('Scan failed.', { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // Save the sensor assignment
-    const handleSaveAssignments = async (pin: string) => {
-        const sensorType = assignments[pin];
-        if (sensorType) {
-            try {
-                await saveSensorAssignment({ pin, sensorType });
-                enqueueSnackbar(
-                    `Assigned ${SENSOR_TYPES.find((t) => t.value === sensorType)?.label} to ${pin} successfully!`,
-                    { variant: 'success' }
+  // save all assignments
+  const handleSaveAll = async () => {
+    try {
+      await saveAllSensorAssignments(assignments);
+      enqueueSnackbar('All assignments saved!', { variant: 'success' });
+    } catch {
+      enqueueSnackbar('Failed to save assignments.', { variant: 'error' });
+    }
+  };
+
+  // reset config
+  const handleReset = async () => {
+    setLoading(true);
+    try {
+      await resetSensorAssignments();
+      // wipe out all except I²C
+      setAssignments(() => {
+        const init: Record<string,string> = {};
+        I2C_PORTS.forEach(p => { init[p.key] = ''; });
+        return init;
+      });
+      enqueueSnackbar('Configuration reset!', { variant: 'info' });
+    } catch (e: any) {
+      enqueueSnackbar(`Reset failed: ${e.message}`, { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // on mount & every 30s poll the last scan
+  useEffect(() => {
+    doScan();
+    const iv = setInterval(doScan, 30000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const handleChange = (key: string, type: string) =>
+    setAssignments(prev => ({ ...prev, [key]: type }));
+  
+
+  return (
+    <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical:'bottom', horizontal:'left' }}>
+      <Box sx={{ m:2, overflowX:'auto' }}>
+        <Box sx={{ display:'flex', justifyContent:'flex-end', mb:2, gap:1 }}>
+          <Button variant="outlined" onClick={handleTrigger} disabled={loading}>
+            Scan Now
+          </Button>
+          <Button variant="contained" onClick={handleSaveAll} disabled={loading}>
+            Save All
+          </Button>
+          <Button variant="outlined" color="secondary" onClick={handleReset} disabled={loading}>
+            Reset
+          </Button>
+        </Box>
+
+        {error && <Typography color="error" align="center">{error}</Typography>}
+
+        <TableContainer component={Paper} sx={{ boxShadow:3 }}>
+          <Table>
+            <TableHead>
+              <TableRow sx={{ backgroundColor:'#1976d2' }}>
+                <TableCell sx={{ color:'white', fontWeight:'bold' }}>Port</TableCell>
+                <TableCell sx={{ color:'white', fontWeight:'bold' }}>Pin #</TableCell>
+                <TableCell sx={{ color:'white', fontWeight:'bold' }}>Detected?</TableCell>
+                <TableCell sx={{ color:'white', fontWeight:'bold' }}>Sensor</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {/* Analog JST ports */}
+              {ANALOG_PORTS.map(({ label, pin, key }) => {
+                const entry = scan.analogPins.find(p => p.pin === pin);
+                const detected = entry?.detected ?? false;
+                return (
+                  <TableRow key={key} sx={{ opacity: detected ? 1 : 0.4 }}>
+                    <TableCell>{label}</TableCell>
+                    <TableCell>{pin}</TableCell>
+                    <TableCell>
+                      <Chip label={detected ? 'Yes' : 'No'}
+                            color={detected ? 'success' : 'default'} />
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={assignments[key] || ''}
+                        onChange={e => handleChange(key, e.target.value as string)}
+                        disabled={!detected}
+                        fullWidth
+                      >
+                        {SENSOR_TYPES.map(t => (
+                          <MenuItem key={t.value} value={t.value}>
+                            {t.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </TableCell>
+                  </TableRow>
                 );
-            } catch (err: any) {
-                console.error('Error saving assignment:', err.message, err);
-                enqueueSnackbar('Failed to save assignment.', { variant: 'error' });
-            }
-        } else {
-            enqueueSnackbar('Please select a sensor type before saving.', { variant: 'warning' });
-        }
-    };
+              })}
 
-    // Render the table
-    return (
-        <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
-            <Box sx={{ margin: 2 }}>
-                {error && (
-                    <Typography variant="body1" color="error" align="center" sx={{ mb: 2 }}>
-                        {error}
-                    </Typography>
-                )}
-                <TableContainer component={Paper} sx={{ boxShadow: 3 }}>
-                    <Table>
-                        <TableHead>
-                            <TableRow sx={{ backgroundColor: '#1976d2' }}>
-                                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Port</TableCell>
-                                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Pin</TableCell>
-                                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Current Value</TableCell>
-                                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Status</TableCell>
-                                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Sensor Assignment</TableCell>
-                                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Actions</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {PORTS.map((port) => {
-                                const detectedDevice = devices?.digitalPins?.find((device: any) => device.pin === port.pin);
-                                const isDetected = !!detectedDevice;
-                                return (
-                                    <TableRow key={port.pin}>
-                                        <TableCell>{port.port}</TableCell>
-                                        <TableCell>{port.pin}</TableCell>
-                                        <TableCell>{isDetected ? detectedDevice.value : '--'}</TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                label={isDetected ? 'Detected' : 'Not Detected'}
-                                                color={isDetected ? 'success' : 'default'}
-                                                sx={{ fontWeight: 'bold', fontSize: '0.9rem', padding: '5px' }}
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Select
-                                                value={assignments[port.pin] || ''}
-                                                onChange={(e) => handleAssignmentChange(port.pin, e.target.value as string)}
-                                                displayEmpty
-                                                fullWidth
-                                                disabled={!isDetected}
-                                            >
-                                                {SENSOR_TYPES.map((type) => (
-                                                    <MenuItem key={type.value} value={type.value}>
-                                                        {type.label}
-                                                    </MenuItem>
-                                                ))}
-                                            </Select>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Button
-                                                variant="contained"
-                                                color="primary"
-                                                onClick={() => handleSaveAssignments(port.pin)}
-                                                sx={{ fontWeight: 'bold' }}
-                                                disabled={!isDetected || !assignments[port.pin]}
-                                            >
-                                                Save
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-                {loadingScan && (
-                    <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-                        Scanning for devices...
-                    </Typography>
-                )}
-            </Box>
-        </SnackbarProvider>
-    );
+              {/* Digital JST ports */}
+              {DIGITAL_PORTS.map(({ label, pin, key }) => {
+                const entry = scan.digitalPins.find(p => p.pin === pin);
+                const detected = entry?.detected ?? false;
+                return (
+                  <TableRow key={key} sx={{ opacity: detected ? 1 : 0.4 }}>
+                    <TableCell>{label}</TableCell>
+                    <TableCell>{pin}</TableCell>
+                    <TableCell>
+                      <Chip label={detected ? 'Yes' : 'No'}
+                            color={detected ? 'success' : 'default'} />
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={assignments[key] || ''}
+                        onChange={e => handleChange(key, e.target.value as string)}
+                        disabled={!detected}
+                        fullWidth
+                      >
+                        {SENSOR_TYPES.map(t => (
+                          <MenuItem key={t.value} value={t.value}>
+                            {t.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+
+              {/* I²C sockets */}
+              <TableRow>
+                <TableCell colSpan={4}
+                           sx={{ backgroundColor:'#eee', fontStyle:'italic' }}>
+                  I²C Sockets
+                </TableCell>
+              </TableRow>
+              {I2C_PORTS.map(({label, key}, idx) => {
+                const detected = scan.i2cDevices.length > idx;
+                return (
+                  <TableRow key={key}>
+                    <TableCell>{label}</TableCell>
+                    <TableCell>
+                      {detected ? scan.i2cDevices[idx] : '--'}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={detected ? 'Yes' : 'No'}
+                        color={detected ? 'success' : 'default'}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={assignments[key] || ''}
+                        onChange={e => handleChange(key, e.target.value as string)}
+                        disabled={!detected}
+                        fullWidth
+                      >
+                        {SENSOR_TYPES.map(t => (
+                          <MenuItem key={t.value} value={t.value}>
+                            {t.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {loading && (
+          <Typography align="center" sx={{ mt:2 }}>
+            Scanning…
+          </Typography>
+        )}
+      </Box>
+    </SnackbarProvider>
+  );
 };
 
 export default Devices;

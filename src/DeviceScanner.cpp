@@ -1,180 +1,193 @@
+// DeviceScanner.cpp
+
 #include "DeviceScanner.h"
 #include <Wire.h>
-#include <ESPAsyncWebServer.h>
+#include <ArduinoJson.h>
 
-// --- Configuration based on FireBeetle 2 ---
+// --- Configuration based on your JST wiring ---
 #define SDA_PIN 21
 #define SCL_PIN 22
 
-// Analog pins
-const int analogPins[] = {34, 35, 36, 39};
+static const int analogPins[]      = { 36, 39, 34, 35 };   // A0–A3
+static const char* analogLabels[] = { "A0", "A1", "A2", "A3" };
 
-// Digital pins for D2, D3, D5, D6, D7, D9
-const int digitalPins[] = {25, 26, 0, 14, 13, 2};
-const char* digitalPinLabels[] = {"D2", "D3", "D5", "D6", "D7", "D9"};
+static const int digitalPins[]      = { 25, 26, 0, 14, 13, 2, 4, 12 };  // D2,D3,D5,D6,D7,D9,D12,D13
+static const char* digitalLabels[] = { "D2","D3","D5","D6","D7","D9","D12","D13" };
 
-// UART pins
+// UART pins (unused for now)
 #define UART1_RX 16
 #define UART1_TX 17
-#define UART2_RX 4  // Unused, placeholder if needed
-#define UART2_TX 5  // Unused, placeholder if needed
 
-// --- Global Logging ---
-String logBuffer = "";
+DeviceScanner::DeviceScanner(AsyncWebServer* server)
+  : _server(server)
+{}
 
-// --- Methods of DeviceScanner ---
+DeviceScanner::~DeviceScanner() {}
 
-DeviceScanner::DeviceScanner() {
-    // Clear or initialize the JSON document if needed.
-}
-
-DeviceScanner::~DeviceScanner() {
-    // Nothing specific to free.
-}
-
-// Set all (non-reserved) pins to a safe state (INPUT)
 void DeviceScanner::initializeAllPinsToSafeState() {
-    Serial.println("Initializing pins to safe state...");
-    int unsafePins[] = {1, 3, 6, 7, 8, 9, 10, 11, 16, 17, 20, 24, 28, 29, 30, 31, 37, 38};
+    Serial.println("🔧 initializeAllPinsToSafeState()");
     for (int pin = 0; pin < 40; pin++) {
-        bool isUnsafe = false;
-        for (int i = 0; i < sizeof(unsafePins) / sizeof(unsafePins[0]); i++) {
-            if (pin == unsafePins[i]) {
-                isUnsafe = true;
-                break;
-            }
-        }
-        if (!isUnsafe) {
+        // skip reserved pins + I²C lines
+        bool skip = (
+            pin==1||pin==3||pin==6||pin==7||pin==8||pin==9||
+            pin==10||pin==11||pin==20||pin==24||pin==28||
+            pin==29||pin==30||pin==31||pin==37||pin==38||
+            pin==SDA_PIN||pin==SCL_PIN
+        );
+        if (!skip) {
             pinMode(pin, INPUT);
-            delay(1);
         }
     }
-    Serial.println("Pins initialized to INPUT state.");
 }
 
-// Scan the I2C bus
 void DeviceScanner::scanI2CBus() {
-    Serial.println("🔍 Scanning I2C Bus...");
+    Serial.println("🔍 Scanning I2C Bus…");
     delay(100);
-    
-    JsonArray i2cArray = scanResults["i2cDevices"].to<JsonArray>();
-    for (uint8_t address = 1; address < 127; address++) {
-        Wire.beginTransmission(address);
-        uint8_t error = Wire.endTransmission();
-        if (error == 0) {
-            String addrStr = "0x" + String(address, HEX);
-            i2cArray.add(addrStr);
-            Serial.print("✅ I2C device at: ");
-            Serial.println(addrStr);
+
+    JsonArray arr = scanResults["i2cDevices"].to<JsonArray>();
+    arr.clear();
+
+    for (uint8_t addr = 1; addr < 127; addr++) {
+        Wire.beginTransmission(addr);
+        if (Wire.endTransmission() == 0) {
+            String s = "0x" + String(addr, HEX);
+            arr.add(s);
+            Serial.printf("  ✅ I2C @ %s\n", s.c_str());
         }
     }
-    if (i2cArray.size() == 0) {
-        Serial.println("⚠️ No I2C devices found.");
+    Serial.printf("🔍 → found %u I²C device(s)\n", arr.size());
+    if (arr.size() == 0) {
+        Serial.println("  ⚠️ No I2C devices found.");
     }
-    Wire.end(); // Release I2C bus
 }
 
-// Scan analog pins
 void DeviceScanner::scanAnalogPins() {
-    Serial.println("Scanning Analog Pins...");
-    JsonArray analogArray = scanResults["analogPins"].to<JsonArray>();
-    for (int i = 0; i < sizeof(analogPins) / sizeof(analogPins[0]); i++) {
-        int value = analogRead(analogPins[i]);
-        if (value > 50 || value < 4090) { // Filter noise
-            JsonObject pinData = analogArray.createNestedObject();
-            pinData["pin"] = analogPins[i];
-            pinData["value"] = value;
-            Serial.printf("📏 Analog GPIO %d: %d\n", analogPins[i], value);
+    JsonArray arr = scanResults["analogPins"].to<JsonArray>();
+    arr.clear();
+
+
+   for (size_t i = 0; i < sizeof(analogPins)/sizeof(analogPins[0]); ++i) {
+      int pin = analogPins[i];
+      pinMode(pin, INPUT);
+      delayMicroseconds(10);
+
+        constexpr int SAMPLES = 5;
+        int sum = 0, minv = 4095, maxv = 0;
+        for (int i = 0; i < SAMPLES; i++) {
+            int v = analogRead(pin);
+            sum  += v;
+            minv  = min(minv, v);
+            maxv  = max(maxv, v);
+            delayMicroseconds(20);
         }
+        int avg      = sum / SAMPLES;
+        bool detected = (minv > 20 && maxv < (4095 - 20));
+
+        JsonObject o = arr.createNestedObject();
+        o["pin"]       = pin;
+        o["key"]      = analogLabels[i];
+        o["detected"]  = detected;
+        o["rawValue"]  = detected ? avg : 0;
+
+        Serial.printf("  A%d → %s (avg=%d,min=%d,max=%d)\n",
+                      pin,
+                      detected ? "sensor" : "open",
+                      avg, minv, maxv);
     }
+    Serial.printf("💧 → %u analog pins scanned\n", arr.size());
 }
 
-// Scan digital pins
 void DeviceScanner::scanDigitalPins() {
-    Serial.println("Scanning Digital Pins...");
-    JsonArray digitalArray = scanResults["digitalPins"].to<JsonArray>();
-    int uartPins[] = {16, 17}; // UART1 only
-    for (int i = 0; i < sizeof(digitalPins) / sizeof(digitalPins[0]); i++) {
-        bool skip = false;
-        for (int j = 0; j < sizeof(uartPins) / sizeof(uartPins[0]); j++) {
-            if (digitalPins[i] == uartPins[j]) {
-                skip = true;
-                break;
-            }
-        }
-        if (skip) continue;
-        pinMode(digitalPins[i], INPUT_PULLDOWN);
+    Serial.println("🔌 Scanning digital GPIOs…");
+    JsonArray arr = scanResults["digitalPins"].to<JsonArray>();
+    arr.clear();
+
+    for (size_t i=0; i<sizeof(digitalPins)/sizeof(digitalPins[0]); ++i) {
+      int pin = digitalPins[i];
+
+        // pull-down test
+        pinMode(pin, INPUT_PULLDOWN);
         delay(10);
-        int value = digitalRead(digitalPins[i]);
-        JsonObject pinData = digitalArray.createNestedObject();
-        pinData["pin"] = digitalPinLabels[i]; // D2, D3, D5, etc.
-        pinData["value"] = value;
-        Serial.printf("🔌 Digital %s (GPIO %d): %d\n", digitalPinLabels[i], digitalPins[i], value);
-        pinMode(digitalPins[i], INPUT);
+        int vpd = digitalRead(pin);
+
+        // pull-up test
+        pinMode(pin, INPUT_PULLUP);
+        delay(10);
+        int vpu = digitalRead(pin);
+
+        bool detected = (vpd == HIGH || vpu == LOW);
+
+        JsonObject o = arr.createNestedObject();
+        o["pin"]      = pin;
+         o["key"]      = digitalLabels[i];
+        o["detected"] = detected;
+        o["value"]    = detected ? (vpd == HIGH ? 1 : 0) : -1;
+
+        Serial.printf("  %s (GPIO %d) → %s (pd=%d, pu=%d)\n",
+                      digitalLabels[i],
+                      pin,
+                      detected ? "attached" : "open",
+                      vpd, vpu);
+
+        // restore to clean state
+        pinMode(pin, INPUT);
     }
+    Serial.printf("🔌 → %u digital pins scanned\n", arr.size());
 }
 
-// Scan UART interfaces
 void DeviceScanner::scanUARTInterfaces() {
-    /*Serial.println("🔍 Scanning UART Interfaces...");
-    JsonObject uartResults = scanResults["uartInterfaces"].to<JsonObject>();
-    
-    HardwareSerial uart1(1);
-    uart1.begin(9600, SERIAL_8N1, UART1_RX, UART1_TX);
-    uart1.println("TEST\n");
-    delay(100);
-    int avail1 = uart1.available();
-    if (avail1 > 0) {
-        uartResults["UART1"] = avail1;
-        Serial.printf("📡 UART1 (RX:%d, TX:%d) bytes: %d\n", UART1_RX, UART1_TX, avail1);
-    }
-    uart1.end();
-    
-    HardwareSerial uart2(2);
-    uart2.begin(9600, SERIAL_8N1, UART2_RX, UART2_TX);
-    uart2.println("TEST\n");
-    delay(100);
-    int avail2 = uart2.available();
-    if (avail2 > 0) {
-        uartResults["UART2"] = avail2;
-        Serial.printf("📡 UART2 (RX:%d, TX:%d) bytes: %d\n", UART2_RX, UART2_TX, avail2);
-    }
-    uart2.end();*/
+    // no-op for now
 }
 
-// Perform initial scans
 void DeviceScanner::begin() {
-    Serial.println("Starting device scan...");
+    Serial.println("🚀 DeviceScanner::begin()");
+    scanResults.clear();
+    scanResults.createNestedArray("i2cDevices");
+    scanResults.createNestedArray("analogPins");
+    scanResults.createNestedArray("digitalPins");
+    scanResults.createNestedArray("uartInterfaces");
+
+    // I²C setup
     Wire.begin(SDA_PIN, SCL_PIN);
 
-    initializeAllPinsToSafeState();
+   // initializeAllPinsToSafeState();
     scanI2CBus();
     scanAnalogPins();
     scanDigitalPins();
     scanUARTInterfaces();
-    Serial.println("Scan complete.");
-}
 
-// Periodic rescans
-void DeviceScanner::loop() {
-    static unsigned long lastScanTime = 0;
-    const unsigned long RESCAN_INTERVAL = 30000; // 30 seconds
-    if (millis() - lastScanTime >= RESCAN_INTERVAL) {
+    // HTTP endpoints
+    _server->on("/api/scan", HTTP_GET, [this](AsyncWebServerRequest* req){
+        String json = getScanResults();
+        Serial.println("→ RAW SCAN JSON:\n" + json);
+        req->send(200, "application/json", json);
+    });
+    _server->on("/api/scan/trigger", HTTP_POST, [this](AsyncWebServerRequest* req){
         scanI2CBus();
         scanAnalogPins();
         scanDigitalPins();
         scanUARTInterfaces();
-        lastScanTime = millis();
-    }
+        req->send(200, "application/json", getScanResults());
+    });
+
+    Serial.println("✔️ Initial scan complete");
 }
 
-// Return JSON results
+void DeviceScanner::loop() {
+    static uint32_t last = 0;
+    if (millis() - last < 30000) return;
+    last = millis();
+
+    scanI2CBus();
+    scanAnalogPins();
+    scanDigitalPins();
+    scanUARTInterfaces();
+
+    Serial.println("✔️ Periodic scan complete");
+}
+
 String DeviceScanner::getScanResults() {
-    String jsonString;
-    if (scanResults.isNull()) {
-        jsonString = "{}";
-    } else {
-        serializeJsonPretty(scanResults, jsonString);
-    }
-    return jsonString;
+    String out;
+    serializeJsonPretty(scanResults, out);
+    return out;
 }

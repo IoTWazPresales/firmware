@@ -1,76 +1,48 @@
-#ifndef RelayControl_h
-#define RelayControl_h
+#pragma once
 
-#include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
-#include <SensorMoisture.h>
-#include <SensorPH.h>
-#include <SensorHumidityDHT11.h>
-#include <TemperatureSensor.h>
-#include <AtmosphereSensor.h>
-
+#include "SensorManager.h"
 
 class RelayControl {
 public:
-    RelayControl(AsyncWebServer* server, SensorMoisture* soilMoisture, SensorHumidityDHT11* airData, SensorPH* phSensor, AtmosphereSensor* CO2level);
+    struct RelayConfig {
+        int    pin       = -1;
+        String parameter = "";
+        float  min       = 0.0f;
+        float  max       = 100.0f;
+        bool   state     = false;
+    };
+
+    RelayControl(AsyncWebServer* server, SensorManager* mgr);
 
     void begin();
     void loop();
 
-    void readPump();
-    void readExtractor();
-    void readIntake();
+    bool getWaterPumpState()    const;
+    bool getIntakeFanState()    const;
+    bool getExhaustFanState()   const;
+    bool getLightsState()       const;
 
-    float getMoistureMinThreshold() const;
-    float getMoistureMaxThreshold() const;
-    float getCO2MinThreshold() const;
-    float getCO2MaxThreshold() const;
-    float getTemperatureMinThreshold() const;
-    float getTemperatureMaxThreshold() const;
-    float getHumidityMinThreshold() const;
-    float getHumidityMaxThreshold() const;
-    float getExtractorFanState() const;
-    float getWaterPumpState() const;
-    float getIntakeFanState() const;
-
-    void setWaterPumpState();
-    void setExtractorFanState();
-    void setIntakeFanState();
-
-    // Set thresholds
-    void setMoistureThresholds(float minMoisture, float maxMoisture);
-    void setCO2Thresholds(float minCO2, float maxCO2);
-    void setTemperatureThresholds(float minTemp, float maxTemp);
-    void setHumidityThresholds(float minHumi, float maxHumi);
+    void setThresholds(const String& id, float min, float max);
 
 private:
-    SensorMoisture* _soilMoisture;
-    SensorHumidityDHT11* _airData;
-    SensorPH* _phSensor;
-    AtmosphereSensor* _CO2level;
-    
-    float _minMoisture;
-    float _maxMoisture;
-    float _minCO2;
-    float _maxCO2;
-    float _minTemp;
-    float _maxTemp;
-    float _minHumi;
-    float _maxHumi;
-
-    struct RelayStates {
-        bool waterPump;
-        bool exhaustFan;
-        bool intakeFan;
-        float setPump;
-        float setExtractor;
-        float setIntake;
-        float channelFour; // pH value
-    } _state;
-
     AsyncWebServer* _server;
-    unsigned long _lastReading = 0;
-    const unsigned long moistureInterval = 5000;  // Interval in milliseconds
-};
+    SensorManager*  _mgr;
 
-#endif
+    RelayConfig _waterPump;
+    RelayConfig _intakeFan;
+    RelayConfig _exhaustFan;  // extractorFan
+    RelayConfig _lights;
+
+    void loadConfigFiles();
+    void updateRelay(const String& id,
+                     float value,
+                     int pin,
+                     float min,
+                     float max,
+                     bool& state);
+    float getSensorValue(const String& param);
+
+    RelayConfig*       getRelayStruct(const String& id);
+    const RelayConfig* getRelayStruct(const String& id) const;
+};

@@ -10,6 +10,9 @@ class SensorService {
             return response.data;
         } catch (error) {
             console.error('Error fetching sensor data:', error);
+            if (error instanceof Error) {
+                throw new Error(`Network error: ${error.message}`);
+            }
             throw error;
         }
     }

@@ -1,6 +1,7 @@
-#ifndef TemperatureSensor_h
-#define TemperatureSensor_h
+#ifndef TEMPERATURE_SENSOR_H
+#define TEMPERATURE_SENSOR_H
 
+#include <Arduino.h>
 #include <ArduinoJson.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -8,24 +9,25 @@
 
 class TemperatureSensor {
 public:
-    TemperatureSensor(AsyncWebServer* server); // Only keep the server constructor
-
+    TemperatureSensor(AsyncWebServer* server, int pin = -1);
+    ~TemperatureSensor();
     void begin();
     void loop();
-    void readSensor();
     float getTemperature() const;
-    
+    void setPin(int pin);
+    int getPin() const;
 
 private:
     struct {
-        float watertemperature; // Temperature value
+        float watertemperature;
     } _state;
 
-    OneWire _ds = OneWire(D2); // Setup OneWire on pin D2
-    DallasTemperature _tempSensors = DallasTemperature(&_ds);
-    AsyncWebServer* _server; // Server pointer
-    unsigned long lastTemperatureRead = 0;          // Timer variable
-    const unsigned long temperatureInterval = 5000; // Interval in milliseconds
+    OneWire* _oneWire;
+    DallasTemperature* _tempSensors;
+    AsyncWebServer* _server;
+    int _pin;
+    unsigned long _lastTemperatureRead;
+    const unsigned long _temperatureInterval = 5000;
 };
 
 #endif

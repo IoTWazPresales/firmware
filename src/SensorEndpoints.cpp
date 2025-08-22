@@ -1,108 +1,66 @@
 #include "SensorEndpoints.h"
-#include "SensorDataCollector.h"  // Include your saveDataToSPIFFS function here
+#include "SensorDataCollector.h"
+#include "SupabaseConnector.h"
 
-SensorEndpoints::SensorEndpoints(AsyncWebServer* server, 
-                                SensorPH* phSensor, 
-                                TemperatureSensor* tempSensor,
-                                SensorHumidityDHT11* airData,
-                                SensorMoisture* soilMoisture,
-                                SensorRTC* realtime,
-                                SensorTDS* tdsSensor,
-                                AtmosphereSensor* atmosphere,
-                                SpectralSensor* spectralSensor,
-                                NPKSensor* NPKval                               
-                                ) 
-
-    : _server(server), 
-    _phSensor(phSensor), 
-    _tempSensor(tempSensor),
-    _airData(airData),
-    _soilMoisture(soilMoisture),
-    _realtime(realtime),
-    _tdsSensor(tdsSensor),
-    _atmosphere(atmosphere),
-    _spectralSensor(spectralSensor),
-    _NPKval(NPKval)
-    {
-    handleSensorData(); // Initialize endpoint handler
-   
+SensorEndpoints::SensorEndpoints(AsyncWebServer* server, SensorManager* manager, SupabaseConnector* supabase)
+    : _server(server), _manager(manager), _supabase(supabase) {
+    handleSensorData();
 }
 
 void SensorEndpoints::handleSensorData() {
-    // Enable CORS for all endpoint
-    // Handle the GET request for sensor data
     _server->on("/api/sensor", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        // Create a JSON object to hold the sensor data
-        DynamicJsonDocument jsonDoc(JSON_OBJECT_SIZE(25) + 500); // Adjusted buffer size
-        // Fetch sensor data from your sensor classes
-        float temperature = _tempSensor->getTemperature();
-        float ph = _NPKval->getPHSoil();
-        float humidity= _airData->getHumidity();
-        float airtemp= _airData->getAirTemperature();
-        float moisture= _soilMoisture->getMoisture();
-        float tdsSens= _tdsSensor->getTDS();
-        float airquality = _atmosphere->getAirQuality();
-        float TVOC = _atmosphere->getTVOC();
-        float CO2 = _atmosphere->getCO2();
-        float total = _spectralSensor->getTotalLight();
-        float blue = _spectralSensor->getBlueRatio();
-        float green = _spectralSensor->getGreenRatio();
-        float red = _spectralSensor->getRedRatio();
-        float farRed = _spectralSensor->getFarRedRatio();
-        float ChlorophyllIndexRedGreen = _spectralSensor->getChlorophyllIndexRedGreen();
-        float ChlorophyllIndexRedBlue = _spectralSensor->getChlorophyllIndexRedBlue();
-        float NDVI = _spectralSensor->getNDVI();
-        float GreenLightIntensity = _spectralSensor->getGreenLightIntensity();
-        float Lux = _spectralSensor->getLux();
-        float Nitrogen = _NPKval->getNitrogen();
-        float Potassium = _NPKval->getPotassium();
-        float Phosphorus = _NPKval->getPhosphorus();
-        float soilPH = _NPKval->getPHSoil();
+        DynamicJsonDocument jsonDoc(JSON_OBJECT_SIZE(25) + 500);
 
-        String real= _realtime->getRTC();
+        // Pull current sensor values through the SensorManager
+        auto* tempSensor = _manager->getFirstTemperatureSensor();
+        auto* phSensor = _manager->getFirstPH();
+        auto* dhtSensor = _manager->getFirstDHT11();
+        auto* moistureSensor = _manager->getFirstMoistureSensor();
+        auto* tdsSensor = _manager->getFirstTDS();
+        auto* rtc = _manager->getFirstRTC();
+        auto* atmosphere = _manager->getFirstAtmosphereSensor();
+        auto* spectral = _manager->getFirstSpectralSensor();
+        auto* npk = _manager->getFirstNPKSensor();
 
-        auto validateReading = [](float value) {
-            return !isnan(value) && value >= 0 ? value : -1; // Use -1 as error indicator
-        };
-        jsonDoc["temperature"] = temperature;
-        jsonDoc["humidity"] = humidity;
-        jsonDoc["airtemp"]= airtemp;
-        jsonDoc["ph"] = ph;
-        jsonDoc["moisture"] = moisture;
-        jsonDoc["tdsSens"] = tdsSens;
-        jsonDoc["airquality"] = airquality;
-        jsonDoc["TVOC"] = TVOC;
-        jsonDoc["CO2"] = CO2;
-        jsonDoc["real"] = real;
-        jsonDoc["nitro"] = Nitrogen;
-        jsonDoc["potas"] = Potassium;
-        jsonDoc["phos"] = Phosphorus;
-        jsonDoc["soilph"] = soilPH;
-        
-        
-        jsonDoc["total"] = total;
-        jsonDoc["blue"] = blue;
-        jsonDoc["green"] = green;
-        jsonDoc["red"] = red;
-        jsonDoc["farRed"] = farRed;
-        jsonDoc["ChlorophyllIndexRedGreen"] = ChlorophyllIndexRedGreen;
-        jsonDoc["ChlorophyllIndexRedBlue"] = ChlorophyllIndexRedBlue;
-        jsonDoc["ndvi"] = NDVI;
-        jsonDoc["greenIntensity"] = GreenLightIntensity;
-        jsonDoc["lux"] = Lux;
-        
+        jsonDoc["temperature"] = tempSensor ? tempSensor->getTemperature() : -1;
+        jsonDoc["ph"] = npk ? npk->getPHSoil() : (phSensor ? phSensor->getPH() : -1);
+        jsonDoc["humidity"] = dhtSensor ? dhtSensor->getHumidity() : -1;
+        jsonDoc["airtemp"] = dhtSensor ? dhtSensor->getAirTemperature() : -1;
+        jsonDoc["moisture"] = moistureSensor ? moistureSensor->getMoisture() : -1;
+        jsonDoc["tdsSens"] = tdsSensor ? tdsSensor->getTDS() : -1;
+        jsonDoc["airquality"] = atmosphere ? atmosphere->getAirQuality() : -1;
+        jsonDoc["TVOC"] = atmosphere ? atmosphere->getTVOC() : -1;
+        jsonDoc["CO2"] = atmosphere ? atmosphere->getCO2() : -1;
+        jsonDoc["real"] = rtc ? rtc->getRTC() : "N/A";
+
+        jsonDoc["nitro"] = npk ? npk->getNitrogen() : -1;
+        jsonDoc["potas"] = npk ? npk->getPotassium() : -1;
+        jsonDoc["phos"] = npk ? npk->getPhosphorus() : -1;
+        jsonDoc["soilph"] = npk ? npk->getPHSoil() : -1;
+
+        jsonDoc["total"] = spectral ? spectral->getTotalLight() : -1;
+        jsonDoc["blue"] = spectral ? spectral->getBlueRatio() : -1;
+        jsonDoc["green"] = spectral ? spectral->getGreenRatio() : -1;
+        jsonDoc["red"] = spectral ? spectral->getRedRatio() : -1;
+        jsonDoc["farRed"] = spectral ? spectral->getFarRedRatio() : -1;
+        jsonDoc["ChlorophyllIndexRedGreen"] = spectral ? spectral->getChlorophyllIndexRedGreen() : -1;
+        jsonDoc["ChlorophyllIndexRedBlue"] = spectral ? spectral->getChlorophyllIndexRedBlue() : -1;
+        jsonDoc["ndvi"] = spectral ? spectral->getNDVI() : -1;
+        jsonDoc["greenIntensity"] = spectral ? spectral->getGreenLightIntensity() : -1;
+        jsonDoc["lux"] = spectral ? spectral->getLux() : -1;
+
+        // Sync to Supabase if connected
+        if (_supabase && _supabase->isConnected()) {
+            _supabase->syncSensorData(jsonDoc);
+        }
+
         String response;
         serializeJson(jsonDoc, response);
-               
 
-        // Send the response back to the client (frontend)
         request->send(200, "application/json", response);
-
-
     });
 
-    // Optional: Handle preflight OPTIONS request
     _server->on("/api/sensor", HTTP_OPTIONS, [](AsyncWebServerRequest *request) {
-        request->send(204);
+        AsyncWebServerResponse *response = request->beginResponse(204);
     });
 }

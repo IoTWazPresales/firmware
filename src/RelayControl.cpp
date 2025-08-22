@@ -1,210 +1,230 @@
-#include <RelayControl.h>
-const int PUMP_PIN = 0;
-const int INTAKE_FAN_PIN = 26;
-const int EXHAUST_FAN_PIN = 25;
+// RelayControl.cpp
 
-RelayControl::RelayControl(AsyncWebServer* server, SensorMoisture* soilMoisture, SensorHumidityDHT11* airData, SensorPH* phSensor, AtmosphereSensor* CO2level) 
-    : _server(server), _soilMoisture(soilMoisture), _airData(airData), _phSensor(phSensor),_CO2level(CO2level), _lastReading(0) {
-    _state.waterPump = false;
-    _state.exhaustFan = false;
-    _state.intakeFan = false;
-    _state.setPump = -1;
-    _state.setExtractor = -1;
-    _state.setIntake = -1;
-  
-    // Default thresholds
-    _minMoisture = 0.0;
-    _maxMoisture = 100.0;
-    _minTemp = 0.0;
-    _maxTemp = 100.0;
-    _minHumi = 0.0;
-    _maxHumi = 100.0;
-    _minCO2 = 0.0;
-    _maxCO2 = 2000.0;
+#include "RelayControl.h"
+#include <LittleFS.h>
+#include <ArduinoJson.h>
+#include <esp_task_wdt.h>
+
+// Helper: "D10" → 10, etc.
+static int stringPinToGPIO(const String& pin) {
+  if (pin.startsWith("D")) {
+    return pin.substring(1).toInt();
+  }
+  return pin.toInt();
 }
 
-float RelayControl::getMoistureMinThreshold() const {
-    return _minMoisture;
-}
-
-float RelayControl::getMoistureMaxThreshold() const {
-    return _maxMoisture;
-}
-
-float RelayControl::getCO2MinThreshold() const {
-    return _minCO2;
-}
-
-float RelayControl::getCO2MaxThreshold() const {
-    return _maxCO2;
-}
-
-float RelayControl::getTemperatureMinThreshold() const {
-    return _minTemp;
-}
-
-float RelayControl::getTemperatureMaxThreshold() const {
-    return _maxTemp;
-}
-
-float RelayControl::getHumidityMinThreshold() const {
-    return _minHumi;
-}
-
-float RelayControl::getHumidityMaxThreshold() const {
-    return _maxHumi;
-}
-
-float RelayControl::getExtractorFanState() const {
-    return _state.exhaustFan;
-}
-
-float RelayControl::getWaterPumpState() const {
-    return _state.waterPump;
-}
-
-float RelayControl::getIntakeFanState() const {
-    return _state.intakeFan;
-}
+RelayControl::RelayControl(AsyncWebServer* server, SensorManager* mgr)
+  : _server(server), _mgr(mgr)
+{}
 
 void RelayControl::begin() {
-    pinMode(PUMP_PIN, OUTPUT);
-    pinMode(INTAKE_FAN_PIN, OUTPUT);
-    pinMode(EXHAUST_FAN_PIN, OUTPUT);
-    readPump();
-    readIntake();
-    readExtractor();
+    Serial.println(">>> RelayControl::begin()");
+    // Feed the watchdog immediately
+    esp_task_wdt_reset();
+
+    // 1) Load on-disk config
+    loadConfigFiles();
+    yield();  // let the RTOS run
+    esp_task_wdt_reset();
+
+    Serial.println("    config files loaded");
+    yield();
+    esp_task_wdt_reset();
+
+    // 2) For each relay ID, set up the pin if valid
+    for (auto id : {"waterPump", "intakeFan", "exhaustFan", "lights"}) {
+        esp_task_wdt_reset();
+        Serial.print  ("    Loading config for: ");
+        Serial.println(id);
+
+        RelayConfig* rc = getRelayStruct(id);
+        if (!rc) {
+            Serial.println("      ↳ no such RelayConfig struct, skipping");
+            continue;
+        }
+
+        // If pin was assigned (>=0), initialize it
+        if (rc->pin >= 0) {
+            Serial.printf("      ↳ setting up GPIO %d\n", rc->pin);
+            pinMode(rc->pin, OUTPUT);
+            digitalWrite(rc->pin, HIGH);
+            rc->state = false;
+
+            // Give a summary
+            Serial.printf(
+              "      → %-12s GPIO%2d  param='%s'  range[%.2f–%.2f]\n",
+              id,
+              rc->pin,
+              rc->parameter.c_str(),
+              rc->min, rc->max
+            );
+        } else {
+            Serial.println("      ↳ pin < 0, skipping");
+        }
+
+        // Every iteration, yield & reset WDT
+        yield();
+        esp_task_wdt_reset();
+    }
+
+    Serial.println(">>> RelayControl::begin() complete");
 }
+
+void RelayControl::loadConfigFiles() {
+    // Feed watchdog
+    esp_task_wdt_reset();
+
+    // Load relays.json
+    DynamicJsonDocument rd(2048);
+    File rf = LittleFS.open("/relays.json", "r");
+    if (rf && rf.size() > 0) {
+        auto err = deserializeJson(rd, rf);
+        rf.close();
+        Serial.print("    deserialized /relays.json: ");
+        Serial.println(err.c_str());
+    } else {
+        rd.createNestedArray("relays");
+        Serial.println("    /relays.json missing or empty, using empty array");
+    }
+
+    // Load thresholds.json
+    esp_task_wdt_reset();
+    DynamicJsonDocument td(1024);
+    File tf = LittleFS.open("/thresholds.json", "r");
+    if (tf && tf.size() > 0) {
+        auto err = deserializeJson(td, tf);
+        tf.close();
+        Serial.print("    deserialized /thresholds.json: ");
+        Serial.println(err.c_str());
+    } else {
+        Serial.println("    /thresholds.json missing or empty");
+    }
+
+    // Merge into our RelayConfig structs
+    esp_task_wdt_reset();
+    for (JsonObject r : rd["relays"].as<JsonArray>()) {
+        String id        = r["id"].as<String>();
+        String pinLabel;
+        // pin can be string "D10" or integer 10
+        if (r["pin"].is<const char*>()) {
+            pinLabel = r["pin"].as<String>();
+        } else {
+            pinLabel = String("D") + r["pin"].as<int>();
+        }
+
+        int pinNum = stringPinToGPIO(pinLabel);
+        if (pinNum < 0) {
+            Serial.printf("    ⚠️ Invalid pinLabel '%s' for id '%s'\n",
+                          pinLabel.c_str(), id.c_str());
+            continue;
+        }
+
+        // JSON uses "extractorFan", our struct is _exhaustFan
+        String key = (id == "extractorFan") ? "exhaustFan" : id;
+        RelayConfig* rc = getRelayStruct(key);
+        if (!rc) {
+            Serial.printf("    ⚠️ No RelayConfig for key '%s'\n", key.c_str());
+            continue;
+        }
+
+        // Assign pin & parameter
+        rc->pin       = pinNum;
+        rc->parameter = r["parameter"].as<String>();
+
+        // Pull thresholds if present
+        if (td.containsKey(id)) {
+            rc->min = td[id]["min"].as<float>();
+            rc->max = td[id]["max"].as<float>();
+        } else {
+            rc->min = 0.0f;
+            rc->max = 100.0f;
+        }
+
+        Serial.printf(
+          "    ↳ loaded JSON entry '%s': pin=%s→GPIO%d, param=%s, range=%.2f–%.2f\n",
+          id.c_str(),
+          pinLabel.c_str(),
+          pinNum,
+          rc->parameter.c_str(),
+          rc->min,
+          rc->max
+        );
+
+        // Yield every iteration
+        yield();
+        esp_task_wdt_reset();
+    }
+}
+
 
 void RelayControl::loop() {
-    // Read current relay states
-    readPump();
-    readIntake();
-    readExtractor();
-
-    // Fetch sensor readings
-   float moistureLevel = _soilMoisture ? _soilMoisture->getMoisture() : -1;
-    float airTempLevel = _airData ? _airData->getAirTemperature() : -1;
-    float airHumidityLevel = _airData ? _airData->getHumidity() : -1;
-    float CO2 = _CO2level ? _CO2level->getCO2() : -1; 
-
-    // Debug logs
-    Serial.println("Moisture: ");
-    Serial.println(moistureLevel);
-    Serial.println(", Temp: ");
-    Serial.println(airTempLevel);
-    Serial.println(", Humidity: ");
-    Serial.println(airHumidityLevel);
-     Serial.println(", CO2: ");
-    Serial.println(CO2);
-    Serial.println(", Exhaust Fan State (Before): ");
-    Serial.println(_state.exhaustFan ? "ON" : "OFF");
-
-    // Update water pump state
-    _state.setPump = moistureLevel;
-    if (moistureLevel < _minMoisture - 2) { // Hysteresis: turn on below min - 2
-        _state.waterPump = true;
-    } else if (moistureLevel > _maxMoisture + 2) { // Hysteresis: turn off above max + 2
-        _state.waterPump = false;
-    }
-    setWaterPumpState();
-
-    // Update exhaust fan state based on temperature and humidity thresholds
-    if (airTempLevel < _minTemp - 2) {
-        _state.exhaustFan = true; // Turn on if either is below their respective min - hysteresis
-    } else if (airTempLevel > _maxTemp +2) {
-        _state.exhaustFan = false; // Turn off if both exceed their max + hysteresis
-    }
-    setExtractorFanState();
-
-    if (CO2 < _minCO2 - 2) {
-        _state.intakeFan = true; // Turn on if either is below their respective min - hysteresis
-    } else if (CO2 > _maxCO2 + 2) {
-        _state.intakeFan = false; // Turn off if both exceed their max + hysteresis
-    }
-    setIntakeFanState();
-
-    // Debug logs after state update
-    Serial.println("Exhaust Fan State (After): ");
-    Serial.println(_state.exhaustFan ? "ON" : "OFF");
-}
-
-
-void RelayControl::setMoistureThresholds(float minMoisture, float maxMoisture) {
-    _minMoisture = minMoisture;
-    _maxMoisture = maxMoisture;
-}
-
-void RelayControl::setCO2Thresholds(float minCO2, float maxCO2) {
-    _minCO2 = minCO2;
-    _maxCO2 = maxCO2;
-}
-
-void RelayControl::setTemperatureThresholds(float minTemp, float maxTemp) {
-    _minTemp = minTemp;
-    _maxTemp = maxTemp;
-}
-
-void RelayControl::setHumidityThresholds(float minHumi, float maxHumi) {
-    _minHumi = minHumi;
-    _maxHumi = maxHumi;
-}
-
-void RelayControl::setWaterPumpState() {
-    static bool previousState = false;
-    if (_state.waterPump != previousState) {
-        if (_state.waterPump) {
-            digitalWrite(PUMP_PIN, LOW); // Active state
-        } else {
-            digitalWrite(PUMP_PIN, HIGH); // Inactive state
+    // Called every cycle
+    for (auto id : {"waterPump","intakeFan","exhaustFan","lights"}) {
+        RelayConfig* rc = getRelayStruct(id);
+        if (!rc || rc->pin < 0 || rc->parameter.isEmpty()) {
+            Serial.printf("Skipping %-12s (pin=%d param='%s')\n",
+                          id, rc ? rc->pin : -1, rc ? rc->parameter.c_str() : "");
+            continue;
         }
-        previousState = _state.waterPump;
-    }
-}
 
-void RelayControl::setExtractorFanState() {
-    static bool previousState = false;
-    if (_state.exhaustFan != previousState) {
-        if (_state.exhaustFan) {
-            digitalWrite(EXHAUST_FAN_PIN, LOW);
-        } else {
-            digitalWrite(EXHAUST_FAN_PIN, HIGH);
+        // 1) read sensor
+        float val = getSensorValue(rc->parameter);
+
+        // 2) decide
+        bool shouldBeOn = (val < rc->min || val > rc->max);
+
+        // 3) ALWAYS print summary
+        Serial.printf(
+          "%-12s GPIO%2d '%s': val=%.2f  range[%.2f–%.2f] → %s\n",
+          id, rc->pin,
+          rc->parameter.c_str(),
+          val,
+          rc->min, rc->max,
+          shouldBeOn ? "ON" : "OFF"
+        );
+
+        // 4) only trigger if changed
+        if (shouldBeOn != rc->state) {
+            // **If your relay module is active-LOW**, swap HIGH/LOW here
+           digitalWrite(rc->pin, shouldBeOn ? LOW : HIGH);
+            rc->state = shouldBeOn;
+            Serial.printf("  >>> Relay %-10s turned %s\n",
+                          id, shouldBeOn ? "ON" : "OFF");
         }
-        previousState = _state.exhaustFan;
     }
-}
-void RelayControl::setIntakeFanState() {
-    static bool previousState = false;
-    if (_state.intakeFan != previousState) {
-        if (_state.intakeFan) {
-            digitalWrite(INTAKE_FAN_PIN, LOW);
-        } else {
-            digitalWrite(INTAKE_FAN_PIN, HIGH);
-        }
-        previousState = _state.intakeFan;
-    }
+    Serial.println(); // blank line between loops
 }
 
-void RelayControl::readPump() {
-    if (digitalRead(PUMP_PIN) == LOW) {
-        _state.waterPump = true;
-    } else {
-        _state.waterPump = false;
-    }
+float RelayControl::getSensorValue(const String& param) {
+    if (!_mgr) return -1.0f;
+    return _mgr->getParameterValue(param);
 }
 
-void RelayControl::readIntake() {
-    if (digitalRead(INTAKE_FAN_PIN) == LOW) {
-        _state.intakeFan = true;
-    } else {
-        _state.intakeFan = false;
-    }
+RelayControl::RelayConfig*
+RelayControl::getRelayStruct(const String& id) {
+    if      (id=="waterPump")   return &_waterPump;
+    else if (id=="intakeFan")   return &_intakeFan;
+    else if (id=="exhaustFan")  return &_exhaustFan;
+    else if (id=="lights")      return &_lights;
+    return nullptr;
 }
 
-void RelayControl::readExtractor() {
-    if (digitalRead(EXHAUST_FAN_PIN) == LOW) {
-        _state.exhaustFan = true;
-    } else {
-        _state.exhaustFan = false;
+const RelayControl::RelayConfig*
+RelayControl::getRelayStruct(const String& id) const {
+    return const_cast<RelayControl*>(this)->getRelayStruct(id);
+}
+
+bool RelayControl::getWaterPumpState()  const { return _waterPump.state; }
+bool RelayControl::getIntakeFanState()  const { return _intakeFan.state; }
+bool RelayControl::getExhaustFanState() const { return _exhaustFan.state; }
+bool RelayControl::getLightsState()     const { return _lights.state; }
+
+void RelayControl::setThresholds(const String& id, float min, float max) {
+    String key = (id=="extractorFan" ? "exhaustFan" : id);
+    if (auto* rc = getRelayStruct(key)) {
+        rc->min = min;
+        rc->max = max;
+        Serial.printf("Set thresholds %-10s to [%.2f–%.2f]\n",
+                      key.c_str(), min, max);
     }
 }

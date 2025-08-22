@@ -1,141 +1,223 @@
 #include "RelayControlEndpoint.h"
-RelayControlEndpoint::RelayControlEndpoint(AsyncWebServer* server, 
-                                            RelayControl* waterPump, 
-                                            RelayControl* intakeFan, 
-                                            RelayControl* exhaustFan, 
-                                            RelayControl* setPumpThreshold,
-                                            RelayControl* setIntakeThreshold,
-                                            RelayControl* setExhaustTempThreshold,
-                                            RelayControl* setExhaustHumidityThreshold) 
-    : _server(server), 
-      _waterPump(waterPump), 
-      _intakeFan(intakeFan), 
-      _exhaustFan(exhaustFan), 
-      _setPumpThreshold(setPumpThreshold),
-      _setIntakeThreshold(setIntakeThreshold),
-      _setExhaustTempThreshold(setExhaustTempThreshold),
-      _setExhaustHumidityThreshold(setExhaustHumidityThreshold)
+#include "RelayControl.h"
+#include "SupabaseConnector.h"
+#include <LittleFS.h>
+#include <ArduinoJson.h>
+
+RelayControlEndpoint::RelayControlEndpoint(AsyncWebServer* server, RelayControl* relayControl, SupabaseConnector* supabase)
+  : _server(server), _relayControl(relayControl), _supabase(supabase)
 {
-    Serial.println("initialize handler");
-    handleRelayData(); // Initialize endpoint handlers
-    Serial.println("handler initialized");
+  handleRelayData();
+}
+
+static int stringPinToGPIO(const String& pin) {
+  // If you sent "D18", strip the "D" and return 18.
+  // If you sent "18", just parse it.
+  if (pin.startsWith("D")) {
+    return pin.substring(1).toInt();
+  }
+  return pin.toInt();
+}
+
+void RelayControlEndpoint::syncRelayStateToSupabase() {
+    if (_supabase && _supabase->isConnected()) {
+        _supabase->syncRelayStates(
+            _relayControl->getWaterPumpState(),
+            _relayControl->getIntakeFanState(),
+            _relayControl->getExhaustFanState(),
+            _relayControl->getLightsState()
+        );
+    }
 }
 
 void RelayControlEndpoint::handleRelayData() {
-    // Handle the GET request for sensor data
-    _server->on("/api/relay/GetDeviceStates", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        DynamicJsonDocument jsonDoc(1024);
-        jsonDoc["pumpState"] = _waterPump->getWaterPumpState();
-        jsonDoc["extractorFanState"] = _exhaustFan->getExtractorFanState();
-        jsonDoc["intakeFanState"] = _intakeFan->getIntakeFanState();
-        String response;
-        serializeJson(jsonDoc, response);
-        request->send(200, "application/json", response);
-        Serial.println("Request Sent");
-    });
+  //
+  // 1) List available sensor parameters
+  //
+  _server->on("/api/sensors", HTTP_GET, [this](AsyncWebServerRequest* req){
+    DynamicJsonDocument doc(256);
+    auto arr = doc.createNestedArray("parameters");
+    arr.add("soilMoisture");
+    arr.add("temperature");
+    arr.add("co2");
+    arr.add("humidity");
+    arr.add("ph");
+    // add more if you add new sensors…
+    String s; serializeJson(doc, s);
+    req->send(200, "application/json", s);
+  });
 
-    // Get thresholds
-    _server->on("/api/relay/getThresholds", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        DynamicJsonDocument jsonDoc(1024);
-        jsonDoc["minMoisture"] = _setPumpThreshold->getMoistureMinThreshold();
-        jsonDoc["maxMoisture"] = _setPumpThreshold->getMoistureMaxThreshold();
-        jsonDoc["minCO2"] = _setIntakeThreshold->getCO2MinThreshold();
-        jsonDoc["maxCO2"] = _setIntakeThreshold->getCO2MaxThreshold();
-        jsonDoc["minTemp"] = _setExhaustTempThreshold->getTemperatureMinThreshold();
-        jsonDoc["maxTemp"] = _setExhaustTempThreshold->getTemperatureMaxThreshold();
-        jsonDoc["minHumi"] = _setExhaustHumidityThreshold->getHumidityMinThreshold();
-        jsonDoc["maxHumi"] = _setExhaustHumidityThreshold->getHumidityMaxThreshold();
-        
-        String response;
-        serializeJson(jsonDoc, response);
-        request->send(200, "application/json", response);
-        Serial.println("Thresholds Sent");
-    });
+  //
+  // 2) Live device states with Supabase sync
+  //
+  auto deviceStateHandler = [this](AsyncWebServerRequest* req){
+    DynamicJsonDocument d(512);
+    d["pumpState"]        = _relayControl->getWaterPumpState();
+    d["intakeFanState"]   = _relayControl->getIntakeFanState();
+    d["extractorFanState"]= _relayControl->getExhaustFanState();
+    d["lightsState"]      = _relayControl->getLightsState();
+    
+    // Sync to Supabase if connected
+    syncRelayStateToSupabase();
+    
+    String s; serializeJson(d, s);
+    req->send(200, "application/json", s);
+  };
+  _server->on("/api/relay/GetDeviceStates",  HTTP_GET, deviceStateHandler);
+  _server->on("/api/relay/getDeviceStates",  HTTP_GET, deviceStateHandler);
 
-    // Set thresholds
-    _server->on("/api/relay/setThresholds", HTTP_POST, 
-        [this](AsyncWebServerRequest *request){
-            // No response here, handle it in the onRequestBody
-        }, 
-        nullptr,
-        [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-            Serial.println("Receiving JSON body data");
+  //
+  // 3) GET thresholds.json
+  //
+  _server->on("/api/relay/getThresholds", HTTP_GET, [this](AsyncWebServerRequest* req){
+    File f = LittleFS.open("/thresholds.json", "r");
+    DynamicJsonDocument d(512);
+    if (f && f.size()>0) {
+      deserializeJson(d, f);
+      f.close();
+    }
+    String s; serializeJson(d, s);
+    req->send(200, "application/json", s);
+  });
 
-            // Convert incoming data to a String
-            String body = String((char*)data, len);
-            Serial.println("Received body: ");
-            Serial.println(body);
-
-            // Deserialize JSON
-            DynamicJsonDocument doc(1024);
-            DeserializationError error = deserializeJson(doc, body);
-            if (error) {
-                request->send(400, "application/json", "{\"status\":\"error\", \"message\":\"Invalid JSON\"}");
-                return;
-            }
-
-            // Validate thresholds
-            if (!validateThresholds(doc, request)) {
-                return;
-            }
-
-            // Extract values
-            float minMoisture = doc["minMoisture"].as<float>();
-            float maxMoisture = doc["maxMoisture"].as<float>();
-            float minCO2 = doc["minCO2"].as<float>();
-            float maxCO2 = doc["maxCO2"].as<float>();
-            float minTemp = doc["minTemp"].as<float>();
-            float maxTemp = doc["maxTemp"].as<float>();
-            float minHumi = doc["minHumi"].as<float>();
-            float maxHumi = doc["maxHumi"].as<float>();
-
-            // Set the thresholds
-            _setPumpThreshold->setMoistureThresholds(minMoisture, maxMoisture);
-            _setIntakeThreshold->setCO2Thresholds(minCO2, maxCO2);
-            _setExhaustTempThreshold->setTemperatureThresholds(minTemp, maxTemp);
-            _setExhaustHumidityThreshold->setHumidityThresholds(minHumi, maxHumi);
-
-            // Respond with success
-            request->send(200, "application/json", "{\"status\":\"success\"}");
-    });
-
-    // Optional: Handle preflight OPTIONS request
-    _server->on("/api/relay", HTTP_OPTIONS, [](AsyncWebServerRequest *request) {
-        Serial.println("sending preflight");
-        request->send(204);
-        Serial.println("preflight sent");
-    });
-}
-
-bool RelayControlEndpoint::validateThresholds(DynamicJsonDocument& doc, AsyncWebServerRequest* request) {
-    if (!doc.containsKey("minMoisture") || !doc.containsKey("maxMoisture") ||
-        !doc.containsKey("minCO2") || !doc.containsKey("maxCO2") ||
-        !doc.containsKey("minTemp") || !doc.containsKey("maxTemp") ||
-        !doc.containsKey("minHumi") || !doc.containsKey("maxHumi")) {
-        request->send(400, "application/json", "{\"status\":\"error\", \"message\":\"Missing parameters\"}");
-        return false;
+  //
+  // 4) GET merged relay+threshold config
+  //
+  _server->on("/api/relay/config", HTTP_GET, [this](AsyncWebServerRequest* req){
+    // load relays.json
+    File rf = LittleFS.open("/relays.json","r");
+    DynamicJsonDocument rd(2048);
+    if (rf && rf.size()>0) {
+      deserializeJson(rd, rf);
+      rf.close();
+    } else {
+      rd.createNestedArray("relays");
     }
 
-    // Check if min values are less than max values
-    if (doc["minMoisture"].as<float>() >= doc["maxMoisture"].as<float>()) {
-        request->send(400, "application/json", "{\"status\":\"error\", \"message\":\"minMoisture must be less than maxMoisture\"}");
-        return false;
+    // load thresholds.json
+    File tf = LittleFS.open("/thresholds.json","r");
+    DynamicJsonDocument td(1024);
+    if (tf && tf.size()>0) {
+      deserializeJson(td, tf);
+      tf.close();
     }
 
-    if (doc["minCO2"].as<float>() >= doc["maxCO2"].as<float>()) {
-        request->send(400, "application/json", "{\"status\":\"error\", \"message\":\"minCO2 must be less than maxCO2\"}");
-        return false;
+    // merge
+    DynamicJsonDocument out(2048);
+    JsonArray arr = out.createNestedArray("relays");
+    for (JsonObject r : rd["relays"].as<JsonArray>()) {
+      JsonObject o = arr.createNestedObject();
+      String id        = r["id"].as<String>();
+      int    pin       = r["pin"].as<int>();
+      String parameter = r["parameter"].as<String>();
+
+      o["id"]        = id;
+      o["pin"]       = pin;
+      o["parameter"] = parameter;
+      if (td.containsKey(id)) {
+        o["min"] = td[id]["min"].as<float>();
+        o["max"] = td[id]["max"].as<float>();
+      } else {
+        o["min"] = 0.0f;
+        o["max"] = 100.0f;
+      }
     }
 
-    if (doc["minTemp"].as<float>() >= doc["maxTemp"].as<float>()) {
-        request->send(400, "application/json", "{\"status\":\"error\", \"message\":\"minTemp must be less than maxTemp\"}");
-        return false;
-    }
+    String s; serializeJson(out, s);
+    req->send(200, "application/json", s);
+  });
 
-    if (doc["minHumi"].as<float>() >= doc["maxHumi"].as<float>()) {
-        request->send(400, "application/json", "{\"status\":\"error\", \"message\":\"minHumi must be less than maxHumi\"}");
-        return false;
-    }
+  //
+  // 5) POST saveConfig
+  //
+  _server->on("/api/relay/saveConfig", HTTP_POST,
+    [](AsyncWebServerRequest*){},
+    nullptr,
+    [this](AsyncWebServerRequest* req,uint8_t* data,size_t len,size_t,size_t){
+      String body((char*)data,len);
+      Serial.println("saveConfig body: "+body);
 
-    return true;
+      DynamicJsonDocument in(2048);
+      if (deserializeJson(in, body)
+          || !in.containsKey("relays")
+          || !in["relays"].is<JsonArray>())
+      {
+        req->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid payload\"}");
+        return;
+      }
+
+      // write relays.json
+      {
+        DynamicJsonDocument rd(2048);
+        auto arr = rd.createNestedArray("relays");
+        for (JsonObject o : in["relays"].as<JsonArray>()) {
+          String id  = o["id"].as<String>();
+          String ps  = o["pin"].as<String>();
+          String pr  = o["parameter"].as<String>();
+          int    pn  = stringPinToGPIO(ps);
+          if (pn < 0) {
+            req->send(400,"application/json","{\"status\":\"error\",\"message\":\"Bad pin\"}");
+            return;
+          }
+          JsonObject out = arr.createNestedObject();
+          out["id"]        = id;
+          out["pin"]       = pn;
+          out["parameter"] = pr;
+        }
+        File f = LittleFS.open("/relays.json","w");
+        if (!f) { req->send(500,"application/json","{\"status\":\"error\"}"); return; }
+        serializeJson(rd, f);
+        f.close();
+      }
+
+      // write thresholds.json
+      {
+        DynamicJsonDocument td(1024);
+        for (JsonObject o : in["relays"].as<JsonArray>()) {
+          String id = o["id"].as<String>();
+          float  mi = o["min"].as<float>();
+          float  ma = o["max"].as<float>();
+          JsonObject n = td.createNestedObject(id);
+          n["min"] = mi;
+          n["max"] = ma;
+        }
+        File f = LittleFS.open("/thresholds.json","w");
+        if (!f) { req->send(500,"application/json","{\"status\":\"error\"}"); return; }
+        serializeJson(td, f);
+        f.close();
+      }
+
+      _relayControl->begin();
+      req->send(200,"application/json","{\"status\":\"success\"}");
+    }
+  );
+
+  //
+  // NEW: Supabase device registration endpoint
+  //
+  _server->on("/api/device/register", HTTP_POST,
+    [](AsyncWebServerRequest*){},
+    nullptr,
+    [this](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t){
+      String body((char*)data, len);
+      DynamicJsonDocument doc(512);
+      
+      if (deserializeJson(doc, body) || !doc.containsKey("apiKey")) {
+        req->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid payload\"}");
+        return;
+      }
+      
+      String apiKey = doc["apiKey"].as<String>();
+      if (_supabase) {
+        _supabase->setDeviceApiKey(apiKey);
+        req->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Device registered with Supabase\"}");
+      } else {
+        req->send(500, "application/json", "{\"status\":\"error\",\"message\":\"Supabase not available\"}");
+      }
+    }
+  );
+
+  //
+  // 6) Optional legacy & debug endpoints...
+  //
 }

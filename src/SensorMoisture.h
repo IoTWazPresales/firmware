@@ -1,28 +1,22 @@
-#ifndef SensorMoisture_h
-#define SensorMoisture_h
+#ifndef SENSOR_MOISTURE_H
+#define SENSOR_MOISTURE_H
 
-#include <ArduinoJson.h>
+#include <Arduino.h>
 #include <ESPAsyncWebServer.h>
-#include <WiFi.h>
-class SensorMoisture{
- public:
-  SensorMoisture(AsyncWebServer* server);
-  
-  void begin();
-  void loop();
-  void readSensor();
-float getMoisture() const; // Getter for pH value
 
- private:
-  struct SensorState {
-        float moisture; // pH value
-    } _state;
-      AsyncWebServer* _server;
-    
-    unsigned long _lastReading = 0;
-    const unsigned long moistureInterval = 5000;  // Interval in milliseconds
+class SensorMoisture {
+public:
+    SensorMoisture(AsyncWebServer* server, uint8_t pin);
+    void begin();
+    void loop();
+    float getMoisture() const;
 
-
+private:
+    AsyncWebServer* _server;
+    uint8_t _pin;
+    float _moisture;
+    unsigned long _lastReading;
+    const unsigned long _interval = 5000;
 };
 
 #endif

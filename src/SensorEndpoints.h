@@ -4,44 +4,21 @@
 #include <Arduino.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
-#include "TemperatureSensor.h"
-#include "SensorPH.h"
-#include "SensorHumidityDHT11.h"
-#include "SensorMoisture.h"
-#include "SensorTDS.h"
-#include "SensorRTC.h"
-#include "AtmosphereSensor.h"
-#include "SpectralSensor.h"
-#include "NPKSensor.h"
+#include "SupabaseConnector.h"
+
+#include "SensorManager.h"  // Include the full SensorManager to access all sensors
 
 class SensorEndpoints {
 public:
-         SensorEndpoints(AsyncWebServer* server, 
-                        SensorPH* phSensor, 
-                        TemperatureSensor* tempSensor, 
-                        SensorHumidityDHT11* airData,
-                        SensorMoisture* soilMoisture,
-                        SensorRTC* realtime,
-                        SensorTDS* tdsSensor,
-                        AtmosphereSensor* _atmosphere,
-                        SpectralSensor* spectralSensor,
-                        NPKSensor* NPKval
-                        );
-        
-        void handleSensorData();
-
+    SensorEndpoints(AsyncWebServer* server, SensorManager* manager, SupabaseConnector* supabase = nullptr);
 
 private:
     AsyncWebServer* _server;
-    SensorPH* _phSensor;
-    TemperatureSensor* _tempSensor;
-    SensorHumidityDHT11* _airData;
-    SensorMoisture* _soilMoisture;
-    SensorTDS* _tdsSensor;
-    SensorRTC* _realtime;
-    AtmosphereSensor* _atmosphere;
-    SpectralSensor* _spectralSensor;
-    NPKSensor* _NPKval;
+    SensorManager* _manager;
+    SupabaseConnector* _supabase;
+
+        void handleSensorData();
+
 };
 
 #endif // SENSOR_ENDPOINTS_H

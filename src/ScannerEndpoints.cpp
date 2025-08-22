@@ -1,83 +1,102 @@
 #include "ScannerEndpoints.h"
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include <ArduinoJson.h>
 
+// Reference the global SensorManager so we can reload config
+extern SensorManager sensorManager;
+
 ScannerEndpoints::ScannerEndpoints(AsyncWebServer* server, DeviceScanner* scanner)
-    : _server(server), _scanner(scanner) {
+  : _server(server), _scanner(scanner)
+{
     handleScanData();
     handleConfig();
-    handleConfigure();
 }
 
 void ScannerEndpoints::handleScanData() {
+    // GET /api/scan → JSON of last scan results
     _server->on("/api/scan", HTTP_GET, [this](AsyncWebServerRequest *request) {
         String json = _scanner->getScanResults();
-        if (json.isEmpty() || json == "{}") {
-            Serial.println("No scan data available, returning empty object");
-            request->send(200, "application/json", "{}");
-        } else {
-            Serial.println("Sending scan results: " + json);
-            request->send(200, "application/json", json);
-        }
+        request->send(200, "application/json", json);
     });
-
+    // CORS / preflight
     _server->on("/api/scan", HTTP_OPTIONS, [](AsyncWebServerRequest *request) {
         request->send(204);
+    });
+    _server->on("/api/scan/trigger", HTTP_POST, [this](AsyncWebServerRequest *request) {
+        // synchronous scan
+        _scanner->scanI2CBus();
+        _scanner->scanAnalogPins();
+        _scanner->scanDigitalPins();
+        _scanner->scanUARTInterfaces();
+        // send back the new data
+        request->send(200, "application/json", _scanner->getScanResults());
     });
 }
 
 void ScannerEndpoints::handleConfig() {
+    // GET /api/config → serve config.json
     _server->on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request) {
-        File file = SPIFFS.open("/config.json", "r");
-        DynamicJsonDocument doc(512);
-        if (file) {
-            deserializeJson(doc, file);
-            file.close();
+        File f = LittleFS.open("/config.json", "r");
+        DynamicJsonDocument doc(1024);
+        if (f && f.size() > 0) {
+            deserializeJson(doc, f);
+            f.close();
         }
-        String response;
-        serializeJson(doc, response);
-        Serial.println("Sending config: " + response);
-        request->send(200, "application/json", response);
+        String out;
+        serializeJson(doc, out);
+        request->send(200, "application/json", out);
     });
 
+    // POST /api/config → overwrite config.json and reload SensorManager
+    _server->on("/api/config", HTTP_POST,
+        [](AsyncWebServerRequest *request) {}, // no upload handler
+        nullptr,
+        [](AsyncWebServerRequest *request, uint8_t* data, size_t len, size_t idx, size_t total) {
+            DynamicJsonDocument doc(2048);
+            auto err = deserializeJson(doc, data, len);
+            if (err) {
+                request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+                return;
+            }
+            // Overwrite the file
+            File f = LittleFS.open("/config.json", "w");
+            serializeJson(doc, f);
+            f.close();
+            // Immediately reload new config
+            sensorManager.loadConfig();
+            request->send(200, "application/json", "{\"status\":\"success\"}");
+        }
+    );
+
+    // CORS / preflight
     _server->on("/api/config", HTTP_OPTIONS, [](AsyncWebServerRequest *request) {
         request->send(204);
     });
-}
+      // POST /api/config/reset → wipe config.json back to "{}"
+    _server->on("/api/config/reset", HTTP_POST, [](AsyncWebServerRequest* request){
+  Serial.println("🔄 /api/config/reset called — wiping config.json");
+  if (!LittleFS.begin(true)) {
+    Serial.println("❌ LittleFS mount failed");
+    request->send(500, "application/json", "{\"status\":\"error\",\"message\":\"Filesystem mount failed\"}");
+    return;
+  }
+  File f = LittleFS.open("/config.json", "w");
+  if (!f) {
+    Serial.println("❌ could not open config.json for reset");
+    request->send(500, "application/json", "{\"status\":\"error\",\"message\":\"Could not open file\"}");
+    return;
+  }
+  DynamicJsonDocument emptyDoc(1024);
+  serializeJson(emptyDoc, f);
+  f.close();
+  Serial.println("✅ config.json overwritten with {}");
+  sensorManager.loadConfig();
+  request->send(200, "application/json", "{\"status\":\"success\"}");
+});
+// CORS preflight for reset
+_server->on("/api/config/reset", HTTP_OPTIONS, [](AsyncWebServerRequest* request){
+    request->send(204);
+});
 
-void ScannerEndpoints::handleConfigure() {
-    _server->on("/api/configure", HTTP_POST, [](AsyncWebServerRequest *request) {
-        if (request->hasParam("body", true)) {
-            DynamicJsonDocument doc(512);
-            deserializeJson(doc, request->getParam("body", true)->value());
-            String pin = doc["pin"];
-            String sensorType = doc["sensorType"];
 
-            // Load existing config
-            File file = SPIFFS.open("/config.json", "r");
-            DynamicJsonDocument config(512);
-            if (file) {
-                deserializeJson(config, file);
-                file.close();
-            }
-
-            // Update config
-            config[pin] = sensorType;
-
-            // Save config
-            file = SPIFFS.open("/config.json", "w");
-            serializeJson(config, file);
-            file.close();
-
-            Serial.println("Saved assignment: pin=" + pin + ", sensorType=" + sensorType);
-            request->send(200, "application/json", "{\"status\":\"success\"}");
-        } else {
-            Serial.println("Invalid configure request");
-            request->send(400, "application/json", "{\"error\":\"Invalid request\"}");
-        }
-    });
-
-    _server->on("/api/configure", HTTP_OPTIONS, [](AsyncWebServerRequest *request) {
-        request->send(204);
-    });
 }

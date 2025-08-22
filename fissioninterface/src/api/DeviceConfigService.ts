@@ -1,31 +1,18 @@
 import axios from 'axios';
 import { API_CONFIG } from './apiConfig';
 
-// Interface for assignment data (optional, for type safety)
-interface SensorAssignment {
-  pin: string;
-  sensorType: string;
-}
-
-// Fetch saved sensor assignments
-export const fetchSensorAssignments = async (): Promise<{ [key: string]: string }> => {
-  try {
-    const response = await axios.get(API_CONFIG.SCANNER.CONFIG);
-    console.log('Fetched assignments:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching sensor assignments:', error);
-    throw error;
-  }
+// Fetch existing assignments: GET /api/config
+export const fetchSensorAssignments = async (): Promise<{[pin:string]:string}> => {
+  const resp = await axios.get<{[pin:string]:string}>(API_CONFIG.SCANNER.CONFIG);
+  return resp.data;
 };
 
-// Save a sensor assignment
-export const saveSensorAssignment = async (assignment: SensorAssignment): Promise<void> => {
-  try {
-    const response = await axios.post(API_CONFIG.SCANNER.CONFIGURE, assignment);
-    console.log('Saved assignment:', response.data);
-  } catch (error) {
-    console.error('Error saving sensor assignment:', error);
-    throw error;
-  }
+// **New**: send entire map to overwrite config.json
+export const saveAllSensorAssignments = async (
+  assignments: { [pin: string]: string }
+): Promise<void> => {
+  await axios.post(API_CONFIG.SCANNER.CONFIG, assignments);
+};
+export const resetSensorAssignments = async (): Promise<void> => {
+  await axios.post(API_CONFIG.SCANNER.RESET);
 };

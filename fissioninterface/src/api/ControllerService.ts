@@ -64,7 +64,20 @@ export const saveConfig = async (config: {
   return resp.data as { status: string; message?: string };
 };
 
-export const fetchSensorParameters = async (): Promise<string[]> => {
+export interface SensorParameterOption {
+  id: string;
+  label: string;
+  unit?: string;
+  kind: string;
+}
+
+export const fetchSensorParameters = async (): Promise<SensorParameterOption[]> => {
   const resp = await axios.get(API_CONFIG.CONTROLLER.SENSORS);
-  return resp.data.parameters as string[];
+  const parameters = resp.data?.parameters ?? [];
+  return parameters.map((item: any) => ({
+    id: item?.id ?? '',
+    label: item?.label ?? item?.id ?? '',
+    unit: item?.unit ?? '',
+    kind: item?.kind ?? 'numeric',
+  })).filter((option: SensorParameterOption) => option.id.length > 0);
 };

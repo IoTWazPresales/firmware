@@ -1,5 +1,5 @@
 // src/components/ControlPanel.tsx
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 import { SnackbarProvider, useSnackbar } from 'notistack';
 import {
   Table,
@@ -23,14 +23,9 @@ import {
   getDeviceStates,
   saveConfig,
   fetchSensorParameters,
+  SensorParameterOption,
+  DeviceStates,
 } from '../api/ControllerService';
-
-interface ControllerData {
-  pumpState: boolean;
-  intakeFanState: boolean;
-  extractorFanState: boolean;
-  lightsState: boolean;
-}
 
 type DeviceType = 'none' | 'waterPump' | 'extractorFan' | 'intakeFan' | 'lights';
 
@@ -53,7 +48,7 @@ const DEVICE_TYPES = [
   { value: 'lights', label: 'Lights' },
 ];
 
-const deviceStateMap: Record<DeviceType, keyof ControllerData | null> = {
+const deviceStateMap: Record<DeviceType, keyof DeviceStates | null> = {
   none: null,
   waterPump: 'pumpState',
   extractorFan: 'extractorFanState',
@@ -64,16 +59,25 @@ const deviceStateMap: Record<DeviceType, keyof ControllerData | null> = {
 const DEFAULT_UNIT: Record<string, string> = {
   soilMoisture: '%',
   temperature: '°C',
-  co2: 'ppm',
+  CO2: 'ppm',
   humidity: '%',
   ph: '',
+  TVOC: 'ppb',
+  airquality: '',
+  nitro: 'mg/kg',
+  phos: 'mg/kg',
+  potas: 'mg/kg',
+  total: 'µmol/m²/s',
+  ndvi: '',
+  greenIntensity: 'lux',
+  tdsSens: '%',
 };
 
 const ControlPanel: FC = () => {
   const { enqueueSnackbar } = useSnackbar();
-  const [controllerData, setControllerData] = useState<ControllerData | null>(null);
+  const [controllerData, setControllerData] = useState<DeviceStates | null>(null);
   const [loading, setLoading] = useState(false);
-  const [parameters, setParameters] = useState<string[]>([]);
+  const [parameters, setParameters] = useState<SensorParameterOption[]>([]);
   const [assignments, setAssignments] = useState<Record<string, RelayAssignment>>(
     Object.fromEntries(
       PORTS.map((pin) => [
@@ -91,7 +95,10 @@ const ControlPanel: FC = () => {
   }, []);
 
   // Load merged relay+threshold config
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
+    if (parameters.length === 0) {
+      return;
+    }
     setLoading(true);
     try {
       const { relays } = await fetchRelayConfig();
@@ -101,10 +108,11 @@ const ControlPanel: FC = () => {
           const pinNum = parseInt(pin.replace('D', ''), 10);
           const row = relays.find((r) => r.pin === pinNum);
           if (row) {
+            const option = parameters.find((p) => p.id === row.parameter);
             upd[pin] = {
               deviceType: row.id as DeviceType,
               parameter: row.parameter,
-              unit: DEFAULT_UNIT[row.parameter] || '',
+              unit: option?.unit || DEFAULT_UNIT[row.parameter] || '',
               min: row.min,
               max: row.max,
             };
@@ -119,7 +127,7 @@ const ControlPanel: FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [enqueueSnackbar, parameters]);
 
   // Initial load + poll device states
   useEffect(() => {
@@ -131,19 +139,20 @@ const ControlPanel: FC = () => {
     poll();
     const interval = setInterval(poll, 5000);
     return () => clearInterval(interval);
-  }, [enqueueSnackbar]);
+  }, [loadConfig]);
 
   // Handlers
   const setDevType = (pin: string, dt: DeviceType) => {
     setAssignments((a) => ({ ...a, [pin]: { ...a[pin], deviceType: dt } }));
   };
   const setParam = (pin: string, param: string) => {
+    const option = parameters.find((p) => p.id === param);
     setAssignments((a) => ({
       ...a,
       [pin]: {
         deviceType: a[pin].deviceType,
         parameter: param,
-        unit: DEFAULT_UNIT[param] || '',
+        unit: option?.unit || DEFAULT_UNIT[param] || '',
         min: 0,
         max: 100,
       },
@@ -244,8 +253,9 @@ const ControlPanel: FC = () => {
                             <em>None</em>
                           </MenuItem>
                           {parameters.map((p) => (
-                            <MenuItem key={p} value={p}>
-                              {p}
+                            <MenuItem key={p.id} value={p.id}>
+                              {p.label}
+                              {p.unit ? ` (${p.unit})` : ''}
                             </MenuItem>
                           ))}
                         </Select>
@@ -261,7 +271,7 @@ const ControlPanel: FC = () => {
                               valueLabelDisplay="auto"
                               min={0}
                               max={200}
-                              step={a.parameter === 'co2' ? 10 : 0.1}
+                              step={a.parameter.toUpperCase() === 'CO2' ? 10 : 0.1}
                             />
                             <Box display="flex" justifyContent="space-between">
                               <Typography variant="body2">

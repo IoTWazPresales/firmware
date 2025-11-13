@@ -38,11 +38,15 @@ void RelayControlEndpoint::handleRelayData() {
   // 1) List available sensor parameters
   //
   _server->on("/api/sensors", HTTP_GET, [this](AsyncWebServerRequest* req){
-    DynamicJsonDocument doc(256);
+    DynamicJsonDocument doc(1024);
     JsonArray arr = doc.createNestedArray("parameters");
     sensorManager.enumerateCapabilities([&](const SensorCapability& cap, const SensorSample& sample){
       if (cap.kind == SensorValueKind::Numeric) {
-        arr.add(cap.id);
+        JsonObject obj = arr.createNestedObject();
+        obj["id"] = cap.id;
+        obj["label"] = cap.label.length() ? cap.label : cap.id;
+        obj["unit"] = cap.unit;
+        obj["kind"] = "numeric";
       }
     });
     String s; serializeJson(doc, s);

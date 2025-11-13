@@ -29,6 +29,9 @@ public:
     // NEW: Direct API key registration
     bool registerWithApiKey(const String& apiKey);
     bool validateApiKey(const String& apiKey);
+
+    const String& getDeviceId() const { return _deviceId; }
+    const String& getApiKey() const { return _deviceApiKey; }
     
 private:
     String _deviceApiKey;

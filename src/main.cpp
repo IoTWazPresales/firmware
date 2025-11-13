@@ -115,61 +115,47 @@ void setup() {
         server.serveStatic("/static/js/",  LittleFS, "/static/js/");
         server.serveStatic("/static/css/", LittleFS, "/static/css/");
 
-        // 2) Serve index.html at the root path
-        server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-            request->send(LittleFS, "/index.html", "text/html");
-        });
+        if (!LittleFS.exists("/index.html")) {
+            Serial.println("⚠️ index.html missing from filesystem");
+        }
     }
       
      
       delay(1000);
        
-Wire.begin(21, 22);
-    // Initialize relay controrelayControl.begin();  // no more setSensorManager
-    
-     
-    
-   
-   
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-device-api-key, X-Device-Api-Key");
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
 
-        // Cloud Registration Endpoint
-   // NEW: Direct API key registration endpoint
+    // Cloud Registration Endpoint
     server.on("/connect", HTTP_POST, [](AsyncWebServerRequest *request) {
-        String apiKey = "";
+        String apiKey;
         if (request->hasArg("api_key")) {
             apiKey = request->arg("api_key");
+        } else if (request->hasParam("api_key", true)) {
+            apiKey = request->getParam("api_key", true)->value();
         }
-        
+
+        apiKey.trim();
+
         Serial.println("=== DEVICE CONNECTION REQUEST ===");
-        Serial.println("API key received: " + apiKey.substring(0, 15) + "...");
-        
-        if (apiKey.length() == 0) {
+        if (apiKey.length() > 0) {
+            Serial.println("API key received: " + apiKey.substring(0, 15) + "...");
+        }
+
+        if (apiKey.isEmpty()) {
             Serial.println("❌ Connection failed: Missing API key");
             request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing API key\"}");
             return;
         }
-        
-        // Respond immediately to avoid timeout
-        request->send(200, "application/json", "{\"status\":\"processing\",\"message\":\"Validating API key...\"}");
-        request->send(200, "application/json", "{\"status\":\"processing\",\"message\":\"Validating API key and setting up MQTT...\"}");
 
-        // Register with API key in background
-         Serial.println("🚀 Starting hybrid connection process...");
-        bool httpSuccess = supabaseConnector.registerWithApiKey(apiKey);
-        
-        if (httpSuccess) {
-            Serial.println("✅ HTTP registration successful!");
-            
-            // Now set up MQTT with the same credentials
-            String deviceId = "dev_" + WiFi.macAddress();
-            deviceId.replace(":", "");
-            
-            mqttConnector.setDeviceCredentials(deviceId, apiKey);
-            Serial.println("✅ MQTT credentials configured!");
-            Serial.println("🎉 Hybrid connection established (HTTP + MQTT)");
-        } else {
-           Serial.println("❌ Hybrid connection failed");
+        if (!enqueueHybridConnection(apiKey)) {
+            Serial.println("❌ Unable to queue hybrid connection request");
+            request->send(503, "application/json", "{\"status\":\"error\",\"message\":\"Device busy, retry\"}");
+            return;
         }
+
+        request->send(202, "application/json", "{\"status\":\"queued\",\"message\":\"Connection request accepted\"}");
     });
     server.on("/disconnect", HTTP_POST, [](AsyncWebServerRequest *request) {
    Serial.println("=== HYBRID DEVICE DISCONNECT REQUEST ===");        
@@ -201,10 +187,6 @@ Wire.begin(21, 22);
         }
     });
 
-    // Enable CORS preflight handling
-    server.on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request) {
-        request->send(200);
-    });
   
    
     taskManager.begin();
@@ -220,7 +202,6 @@ Wire.begin(21, 22);
 void loop() {
 
 
-    //esp32React.loop();
-    //sensorManager.loop();
-   
+    esp32React.loop();
+    vTaskDelay(pdMS_TO_TICKS(25));
 }

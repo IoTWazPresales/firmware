@@ -15,11 +15,10 @@ void Scanner_Manager(void *parameter) {
         const unsigned long scannerInterval  = 50000;
         unsigned long lastScannerRun         = 0;
         
-        mgr->begin();
         for (;;) {
 
 
-            if (millis() - lastScannerRun >= scannerInterval) {
+            if (mgr && millis() - lastScannerRun >= scannerInterval) {
                 mgr->loop();
                 lastScannerRun = millis();
             }

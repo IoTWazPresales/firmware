@@ -12,11 +12,12 @@ void Relay_Manager(void *parameter) {
             esp_task_wdt_add(NULL);
 
         auto* mgr = static_cast<RelayControl*>(parameter);
-        mgr->begin();
         for (;;) {
 
 
-           mgr->loop();
+           if (mgr) {
+               mgr->loop();
+           }
                
                 
                 esp_task_wdt_reset();

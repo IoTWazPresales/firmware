@@ -79,36 +79,15 @@ void SupabaseConnector::collectAndSyncSensorData() {
     Serial.println("🔄 Collecting sensor data for Supabase sync...");
     
     // Create sensor data JSON
-    DynamicJsonDocument jsonDoc(JSON_OBJECT_SIZE(15) + 300);
+    DynamicJsonDocument jsonDoc(2048);
+    JsonObject root = jsonDoc.to<JsonObject>();
+    _sensorManager->fillNumericJson(root);
 
-    // Pull current sensor values through the SensorManager
-    auto* tempSensor = _sensorManager->getFirstTemperatureSensor();
-    auto* phSensor = _sensorManager->getFirstPH();
-    auto* dhtSensor = _sensorManager->getFirstDHT11();
-    auto* moistureSensor = _sensorManager->getFirstMoistureSensor();
-    auto* tdsSensor = _sensorManager->getFirstTDS();
-    auto* rtc = _sensorManager->getFirstRTC();
-    auto* atmosphere = _sensorManager->getFirstAtmosphereSensor();
-    auto* npk = _sensorManager->getFirstNPKSensor();
+    if (root.size() == 0) {
+        Serial.println("⚠️ No numeric sensor data available for Supabase sync");
+        return;
+    }
 
-    jsonDoc["temperature"] = tempSensor ? tempSensor->getTemperature() : -1;
-    jsonDoc["ph"] = npk ? npk->getPHSoil() : (phSensor ? phSensor->getPH() : -1);
-    jsonDoc["humidity"] = dhtSensor ? dhtSensor->getHumidity() : -1;
-    jsonDoc["airtemp"] = dhtSensor ? dhtSensor->getAirTemperature() : -1;
-    jsonDoc["moisture"] = moistureSensor ? moistureSensor->getMoisture() : -1;
-    jsonDoc["tdsSens"] = tdsSensor ? tdsSensor->getTDS() : -1;
-    jsonDoc["airquality"] = atmosphere ? atmosphere->getAirQuality() : -1;
-    jsonDoc["TVOC"] = atmosphere ? atmosphere->getTVOC() : -1;
-    jsonDoc["CO2"] = atmosphere ? atmosphere->getCO2() : -1;
-    jsonDoc["real"] = rtc ? rtc->getRTC() : "N/A";
-    jsonDoc["nitro"] = npk ? npk->getNitrogen() : -1;
-    jsonDoc["potas"] = npk ? npk->getPotassium() : -1;
-    jsonDoc["phos"] = npk ? npk->getPhosphorus() : -1;
-    jsonDoc["soilph"] = npk ? npk->getPHSoil() : -1;
-    jsonDoc["lux"] = 0; // Simplified for now
-    jsonDoc["total"] = 0; // Simplified for now
-
-    // Now sync this data to Supabase
     syncSensorData(jsonDoc);
 }
 
@@ -437,19 +416,27 @@ String SupabaseConnector::formatSensorDataForSupabase(const DynamicJsonDocument&
     formatted["temperature"] = data["temperature"];
     formatted["humidity"] = data["humidity"];
     formatted["airtemp"] = data["airtemp"];
-    formatted["moisture"] = data["moisture"];
     formatted["ph"] = data["ph"];
-    formatted["soilph"] = data["soilph"];
     formatted["airquality"] = data["airquality"];
     formatted["TVOC"] = data["TVOC"];
     formatted["CO2"] = data["CO2"];
     formatted["tdsSens"] = data["tdsSens"];
     formatted["Lux"] = data["lux"];
-    formatted["real"] = data["real"];
+    formatted["blue"] = data["blue"];
+    formatted["green"] = data["green"];
+    formatted["red"] = data["red"];
+    formatted["farRed"] = data["farRed"];
+    formatted["ChlorophyllIndexRedGreen"] = data["ChlorophyllIndexRedGreen"];
+    formatted["ChlorophyllIndexRedBlue"] = data["ChlorophyllIndexRedBlue"];
+    formatted["ndvi"] = data["ndvi"];
+    formatted["greenIntensity"] = data["greenIntensity"];
+    formatted["moisture"] = data["moisture"];
+    formatted["soilMoisture"] = data["soilMoisture"];
     formatted["total"] = data["total"];
     formatted["nitro"] = data["nitro"];
     formatted["potas"] = data["potas"];
     formatted["phos"] = data["phos"];
+    formatted["soilph"] = data["soilph"];
     
     String result;
     serializeJson(formatted, result);

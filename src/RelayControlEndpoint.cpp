@@ -1,8 +1,11 @@
 #include "RelayControlEndpoint.h"
 #include "RelayControl.h"
 #include "SupabaseConnector.h"
+#include "SensorManager.h"
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+
+extern SensorManager sensorManager;
 
 RelayControlEndpoint::RelayControlEndpoint(AsyncWebServer* server, RelayControl* relayControl, SupabaseConnector* supabase)
   : _server(server), _relayControl(relayControl), _supabase(supabase)
@@ -36,13 +39,12 @@ void RelayControlEndpoint::handleRelayData() {
   //
   _server->on("/api/sensors", HTTP_GET, [this](AsyncWebServerRequest* req){
     DynamicJsonDocument doc(256);
-    auto arr = doc.createNestedArray("parameters");
-    arr.add("soilMoisture");
-    arr.add("temperature");
-    arr.add("co2");
-    arr.add("humidity");
-    arr.add("ph");
-    // add more if you add new sensors…
+    JsonArray arr = doc.createNestedArray("parameters");
+    sensorManager.enumerateCapabilities([&](const SensorCapability& cap, const SensorSample& sample){
+      if (cap.kind == SensorValueKind::Numeric) {
+        arr.add(cap.id);
+      }
+    });
     String s; serializeJson(doc, s);
     req->send(200, "application/json", s);
   });

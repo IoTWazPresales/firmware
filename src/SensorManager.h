@@ -6,6 +6,7 @@
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
 #include <map>
+#include <math.h>
 #include <functional>
 #include <vector>
 
@@ -19,6 +20,25 @@
 #include "SpectralSensor.h"
 #include "NPKSensor.h"
 
+enum class SensorValueKind {
+    Numeric,
+    Text
+};
+
+struct SensorSample {
+    bool valid = false;
+    float numeric = NAN;
+    String text;
+};
+
+struct SensorCapability {
+    String id;
+    String label;
+    String unit;
+    SensorValueKind kind = SensorValueKind::Numeric;
+    std::function<SensorSample()> supplier;
+};
+
 class SensorManager {
 public:
     SensorManager(AsyncWebServer* server);
@@ -28,6 +48,11 @@ public:
     void loop();
     void loadConfig();
     float getParameterValue(const String& name) const;
+
+    void enumerateCapabilities(const std::function<void(const SensorCapability&, const SensorSample&)>& fn) const;
+    void fillValuesJson(JsonObject& root) const;
+    void fillNumericJson(JsonObject& root) const;
+    void describeCapabilities(JsonArray& array) const;
 
     // Legacy getters — unchanged
     SensorHumidityDHT11* getFirstDHT11() const;
@@ -60,8 +85,9 @@ private:
     std::vector<I2CConfig>  _i2cConfigs;
     std::vector<UARTConfig> _uartConfigs;
 
-    // Convenience readers for direct-GPIO sensors
-    std::map<String, std::function<float()>> _readers;
+    std::vector<SensorCapability> _capabilities;
+    std::map<String, SensorSample> _latestSamples;
+    bool _needsCapabilityRefresh = true;
 
     // GPIO lookup for direct pins
     const std::map<String,uint8_t> _pinToGpio = {
@@ -72,7 +98,15 @@ private:
       {"IO12",12}
     };
 
-    void registerReaders();
+    void registerCapabilities();
+    void registerNumericCapability(const String& id,
+                                   const String& label,
+                                   const String& unit,
+                                   std::function<float()> reader);
+    void registerTextCapability(const String& id,
+                                const String& label,
+                                std::function<String()> reader);
+    void updateSamples();
 };
 
 #endif // SENSOR_MANAGER_H

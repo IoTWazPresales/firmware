@@ -7,10 +7,11 @@ import SensorCard from '../components/SensorCard';
 import CustomTheme from '../CustomTheme';
 import SensorService from '../api/SensorService';
 import { fetchThresholds, getDeviceStates } from '../api/ControllerService';
+import { SensorValues } from '../types/sensors';
 
 const Dashboard: FC = () => {
   const { enqueueSnackbar } = useSnackbar();
-  const [sensorData, setSensorData] = useState<any | null>(null);
+  const [sensorData, setSensorData] = useState<SensorValues>({});
   const [thresholds, setThresholds] = useState<any | null>(null);
   const [deviceStates, setDeviceStates] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -32,23 +33,36 @@ const Dashboard: FC = () => {
         const [sensorResponse, thresholdsResponse, devicesResponse] = await Promise.all([
           SensorService.getSensorData(),
           fetchThresholds(),
-        getDeviceStates(),
+          getDeviceStates(),
         ]);
 
-        setSensorData(sensorResponse);
+        const values = sensorResponse?.values ?? {};
+        setSensorData(values);
         setThresholds(thresholdsResponse);
         setDeviceStates(devicesResponse);
 
-        if (sensorResponse) {
-          setAirTempData((prev) => [...prev.slice(-19), sensorResponse.airtemp || 0]);
-          setHumidityData((prev) => [...prev.slice(-19), sensorResponse.humidity || 0]);
-          setMoistureData((prev) => [...prev.slice(-19), sensorResponse.moisture || 0]);
-          setTDSData((prev) => [...prev.slice(-19), sensorResponse.tdsSens || 0]);
-          setCO2Data((prev) => [...prev.slice(-19), sensorResponse.CO2 || 0]);
-          setTVOCData((prev) => [...prev.slice(-19), sensorResponse.TVOC || 0]);
-          setWaterTempData((prev) => [...prev.slice(-19), sensorResponse.temperature || 0]);
-          setphData((prev) => [...prev.slice(-19), sensorResponse.ph || 0]);
-          setAirQualityData((prev) => [...prev.slice(-19), sensorResponse.airquality || 0]);
+        const numeric = (key: string) => {
+          const value = values[key];
+          if (typeof value === 'number') {
+            return value;
+          }
+          if (typeof value === 'string') {
+            const parsed = parseFloat(value);
+            return Number.isFinite(parsed) ? parsed : 0;
+          }
+          return 0;
+        };
+
+        if (values) {
+          setAirTempData((prev) => [...prev.slice(-19), numeric('airtemp')]);
+          setHumidityData((prev) => [...prev.slice(-19), numeric('humidity')]);
+          setMoistureData((prev) => [...prev.slice(-19), numeric('moisture')]);
+          setTDSData((prev) => [...prev.slice(-19), numeric('tdsSens')]);
+          setCO2Data((prev) => [...prev.slice(-19), numeric('CO2')]);
+          setTVOCData((prev) => [...prev.slice(-19), numeric('TVOC')]);
+          setWaterTempData((prev) => [...prev.slice(-19), numeric('temperature')]);
+          setphData((prev) => [...prev.slice(-19), numeric('ph')]);
+          setAirQualityData((prev) => [...prev.slice(-19), numeric('airquality')]);
         }
       } catch (error) {
         enqueueSnackbar('Failed to fetch sensor data', { variant: 'error' });
@@ -126,7 +140,7 @@ const Dashboard: FC = () => {
 
           <SensorCard
             title="Soil Moisture"
-            value={sensorData?.moisture ?? null}
+            value={sensorData?.moisture ?? sensorData?.soilMoisture ?? null}
             unit="%"
             loading={loading}
             chartType="sparkline"

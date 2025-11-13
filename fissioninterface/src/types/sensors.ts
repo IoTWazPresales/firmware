@@ -1,30 +1,20 @@
-export interface SensorData {
-    temperature: number;
-    ph: number;
-    humidity: number;
-    airtemp: number;
-    moisture: number;
-    tdsSens: number;
-    airquality: number;
-    TVOC: number;
-    CO2: number;
-    real: string;
-    total: number;
-    blue: number;
-    green: number;
-    red: number;
-    farRed: number;
-    ChlorophyllIndexRedGreen: number;
-    ChlorophyllIndexRedBlue: number;
-    ndvi: number;
-    GreenLightIntensity: number;
-    Lux: number;
-    soilph:number;
-    nitro:number;
-    potas:number;
-    phos:number;
+export type SensorValues = Record<string, number | string | null | undefined>;
 
+export type SensorValueKind = 'numeric' | 'text';
 
+export interface SensorCapabilityMeta {
+    id: string;
+    label: string;
+    unit: string;
+    kind: SensorValueKind;
+}
 
-
+export interface SensorResponse {
+    values: SensorValues;
+    meta: SensorCapabilityMeta[];
+    /**
+     * For backward compatibility we retain the flattened properties
+     * until the UI migrates fully to `values`.
+     */
+    [legacyKey: string]: any;
 }

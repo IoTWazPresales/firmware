@@ -1,17 +1,39 @@
-// SensorManager.cpp
-
 #include "SensorManager.h"
 #include <Wire.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include <cmath>
+#include <utility>
 
 // I²C pins (unchanged)
 static constexpr int I2C_SDA = 21;
 static constexpr int I2C_SCL = 22;
 
+namespace {
+inline SensorSample makeNumericSample(float value) {
+    SensorSample sample;
+    if (std::isnan(value)) {
+        sample.valid = false;
+        sample.numeric = NAN;
+    } else {
+        sample.valid = true;
+        sample.numeric = value;
+    }
+    return sample;
+}
+
+inline SensorSample makeTextSample(const String& value) {
+    SensorSample sample;
+    sample.valid = value.length() > 0;
+    sample.text = value;
+    return sample;
+}
+}
+
 SensorManager::SensorManager(AsyncWebServer* server)
   : _server(server)
   , _rtcSensor(nullptr)
+  , _needsCapabilityRefresh(true)
 {}
 
 SensorManager::~SensorManager() {
@@ -33,13 +55,11 @@ void SensorManager::loadConfig() {
         deserializeJson(cfg, f);
         f.close();
     } else {
-        // ensure file exists
         File w = LittleFS.open("/config.json","w");
         w.print("{}");
         w.close();
     }
 
-    // clear out everything
     _dht11Sensors.clear();
     _tempSensors.clear();
     _tdsSensors.clear();
@@ -51,7 +71,7 @@ void SensorManager::loadConfig() {
     _npkSensors.clear();
     _i2cConfigs.clear();
     _uartConfigs.clear();
-
+    _latestSamples.clear();
     if (!cfg.is<JsonObject>()) return;
 
     for (auto kv : cfg.as<JsonObject>()) {
@@ -65,17 +85,17 @@ void SensorManager::loadConfig() {
             } 
             else if (type == "airQuality") {
                 _atmosphereSensors.push_back(new AtmosphereSensor(_server, I2C_SDA, I2C_SCL));
+            } else if (type == "npk") {
+                _npkSensors.push_back(new NPKSensor(_server));
             }
             continue;
         }
 
-        // — RTC —
         if (type == "rtcSensor") {
             if (!_rtcSensor) _rtcSensor = new SensorRTC(_server);
             continue;
         }
 
-        // — direct-GPIO pins —
         auto it = _pinToGpio.find(key);
         if (it == _pinToGpio.end()) continue;
         int gpio = it->second;
@@ -96,16 +116,13 @@ void SensorManager::loadConfig() {
             _moistureSensors.push_back(new SensorMoisture(_server, gpio));
         }
     }
+    _needsCapabilityRefresh = true;
 }
 
 void SensorManager::begin() {
-    // bring up I²C
     Wire.begin(I2C_SDA, I2C_SCL);
-
-    // 1) load from config
     loadConfig();
 
-    // 2) begin all direct-GPIO sensors
     for (auto *p: _dht11Sensors)      p->begin();
     for (auto *p: _tempSensors)       p->begin();
     for (auto *p: _tdsSensors)        p->begin();
@@ -116,43 +133,166 @@ void SensorManager::begin() {
     for (auto *p: _spectralSensors)   p->begin();
     for (auto *p: _npkSensors)        p->begin();
 
-    // 3) register readers for API
-    registerReaders();
+    registerCapabilities();
+    updateSamples();
+    _needsCapabilityRefresh = false;
 }
 
-void SensorManager::registerReaders() {
-    _readers["soilMoisture"] = [&](){
-        auto* s = getFirstMoistureSensor();
-        return s ? s->getMoisture() : -1.0f;
+void SensorManager::registerNumericCapability(const String& id,
+                                              const String& label,
+                                              const String& unit,
+                                              std::function<float()> reader) {
+    SensorCapability cap;
+    cap.id = id;
+    cap.label = label;
+    cap.unit = unit;
+    cap.kind = SensorValueKind::Numeric;
+    cap.supplier = [reader]() -> SensorSample {
+        if (!reader) {
+            return makeNumericSample(NAN);
+        }
+        float value = reader();
+        return makeNumericSample(value);
     };
-    _readers["temperature"] = [&](){
-        auto* s = getFirstDHT11();
-        return s ? s->getAirTemperature() : -1.0f;
+    _capabilities.push_back(std::move(cap));
+}
+
+void SensorManager::registerTextCapability(const String& id,
+                                           const String& label,
+                                           std::function<String()> reader) {
+    SensorCapability cap;
+    cap.id = id;
+    cap.label = label;
+    cap.unit = "";
+    cap.kind = SensorValueKind::Text;
+    cap.supplier = [reader]() -> SensorSample {
+        if (!reader) {
+            return makeTextSample(String());
+        }
+        return makeTextSample(reader());
     };
-    _readers["humidity"] = [&](){
-        auto* s = getFirstDHT11();
-        return s ? s->getHumidity() : -1.0f;
-    };
-    _readers["ph"] = [&](){
-        auto* s = getFirstPH();
-        return s ? s->getPH() : -1.0f;
-    };
-    _readers["co2"] = [&](){
-        auto* s = getFirstAtmosphereSensor();
-        return s ? s->getCO2() : -1.0f;
-    };
-    _readers["spectral"] = [&](){
-        auto* s = getFirstSpectralSensor();
-        return s ? s->getLux() : -1.0f;
-    };
-    _readers["airQuality"] = [&](){
-        auto* s = getFirstAtmosphereSensor();
-        return s ? s->getTVOC() : -1.0f;
-    };
+    _capabilities.push_back(std::move(cap));
+}
+
+void SensorManager::registerCapabilities() {
+    _capabilities.clear();
+
+    if (auto* s = getFirstTemperatureSensor()) {
+        registerNumericCapability("temperature", "Water Temperature", "°C", [s]() {
+            float v = s->getTemperature();
+            return (v < -40.0f) ? NAN : v;
+        });
+    }
+    if (auto* dht = getFirstDHT11()) {
+        registerNumericCapability("airtemp", "Air Temperature", "°C", [dht]() {
+            float v = dht->getAirTemperature();
+            return (v < -40.0f) ? NAN : v;
+        });
+        registerNumericCapability("humidity", "Air Humidity", "%", [dht]() {
+            float v = dht->getHumidity();
+            return (v < 0.0f) ? NAN : v;
+        });
+    }
+    if (auto* moisture = getFirstMoistureSensor()) {
+        auto moistureReader = [moisture]() {
+            float v = moisture->getMoisture();
+            return (v < 0.0f) ? NAN : v;
+        };
+        registerNumericCapability("moisture", "Soil Moisture", "%", moistureReader);
+        registerNumericCapability("soilMoisture", "Soil Moisture (alias)", "%", moistureReader);
+    }
+    if (auto* tds = getFirstTDS()) {
+        registerNumericCapability("tdsSens", "TDS", "ppm", [tds]() {
+            float v = tds->getTDS();
+            return (v < 0.0f) ? NAN : v;
+        });
+    }
+    if (auto* ph = getFirstPH()) {
+        registerNumericCapability("ph", "Solution pH", "", [ph]() {
+            float v = ph->getPH();
+            return (v < 0.0f) ? NAN : v;
+        });
+    }
+    if (auto* rtc = getFirstRTC()) {
+        registerTextCapability("real", "RTC Timestamp", [rtc]() {
+            return rtc->getRTC();
+        });
+    }
+    if (auto* atmos = getFirstAtmosphereSensor()) {
+        registerNumericCapability("CO2", "CO₂", "ppm", [atmos]() {
+            float v = atmos->getCO2();
+            return (v < 0.0f) ? NAN : v;
+        });
+        registerNumericCapability("TVOC", "TVOC", "ppb", [atmos]() {
+            float v = atmos->getTVOC();
+            return (v < 0.0f) ? NAN : v;
+        });
+        registerNumericCapability("airquality", "Air Quality Index", "", [atmos]() {
+            float v = atmos->getAirQuality();
+            return (v < 0.0f) ? NAN : v;
+        });
+    }
+    if (auto* npk = getFirstNPKSensor()) {
+        registerNumericCapability("nitro", "Nitrogen", "mg/kg", [npk]() {
+            float v = npk->getNitrogen();
+            return (v < 0.0f) ? NAN : v;
+        });
+        registerNumericCapability("potas", "Potassium", "mg/kg", [npk]() {
+            float v = npk->getPotassium();
+            return (v < 0.0f) ? NAN : v;
+        });
+        registerNumericCapability("phos", "Phosphorus", "mg/kg", [npk]() {
+            float v = npk->getPhosphorus();
+            return (v < 0.0f) ? NAN : v;
+        });
+        registerNumericCapability("soilph", "Soil pH", "", [npk]() {
+            float v = npk->getPHSoil();
+            return (v < 0.0f) ? NAN : v;
+        });
+    }
+    if (auto* spect = getFirstSpectralSensor()) {
+        registerNumericCapability("total", "PAR Total", "µmol/m²/s", [spect]() {
+            float v = spect->getTotalLight();
+            return (v < 0.0f) ? NAN : v;
+        });
+        registerNumericCapability("blue", "Blue Ratio", "", [spect]() {
+            return spect->getBlueRatio();
+        });
+        registerNumericCapability("green", "Green Ratio", "", [spect]() {
+            return spect->getGreenRatio();
+        });
+        registerNumericCapability("red", "Red Ratio", "", [spect]() {
+            return spect->getRedRatio();
+        });
+        registerNumericCapability("farRed", "Far Red Ratio", "", [spect]() {
+            return spect->getFarRedRatio();
+        });
+        registerNumericCapability("ChlorophyllIndexRedGreen", "Chlorophyll Index (R/G)", "", [spect]() {
+            return spect->getChlorophyllIndexRedGreen();
+        });
+        registerNumericCapability("ChlorophyllIndexRedBlue", "Chlorophyll Index (R/B)", "", [spect]() {
+            return spect->getChlorophyllIndexRedBlue();
+        });
+        registerNumericCapability("ndvi", "NDVI", "", [spect]() {
+            return spect->getNDVI();
+        });
+        registerNumericCapability("greenIntensity", "Green Light Intensity", "lux", [spect]() {
+            return spect->getGreenLightIntensity();
+        });
+        registerNumericCapability("lux", "Lux", "lux", [spect]() {
+            return spect->getLux();
+        });
+    }
+}
+
+void SensorManager::updateSamples() {
+    for (const auto& cap : _capabilities) {
+        SensorSample sample = cap.supplier ? cap.supplier() : SensorSample{};
+        _latestSamples[cap.id] = sample;
+    }
 }
 
 void SensorManager::loop() {
-    // direct-GPIO sensors
     for (auto *p: _dht11Sensors)      p->loop();
     for (auto *p: _tempSensors)       p->loop();
     for (auto *p: _tdsSensors)        p->loop();
@@ -162,12 +302,82 @@ void SensorManager::loop() {
     for (auto *p: _atmosphereSensors) p->loop();
     for (auto *p: _spectralSensors)   p->loop();
     for (auto *p: _npkSensors)        p->loop();
+
+    if (_needsCapabilityRefresh) {
+        registerCapabilities();
+        _needsCapabilityRefresh = false;
+    }
+
+    updateSamples();
 }
 
 float SensorManager::getParameterValue(const String& name) const {
-    auto it = _readers.find(name);
-    return it != _readers.end() ? it->second() : -1.0f;
+    auto it = _latestSamples.find(name);
+    if (it == _latestSamples.end()) {
+        return -1.0f;
+    }
+    const SensorSample& sample = it->second;
+    if (!sample.valid || std::isnan(sample.numeric)) {
+        return -1.0f;
+    }
+    return sample.numeric;
 }
+
+void SensorManager::enumerateCapabilities(const std::function<void(const SensorCapability&, const SensorSample&)>& fn) const {
+    if (!fn) return;
+    for (const auto& cap : _capabilities) {
+        auto it = _latestSamples.find(cap.id);
+        if (it != _latestSamples.end()) {
+            fn(cap, it->second);
+        } else {
+            fn(cap, SensorSample{});
+        }
+    }
+}
+
+void SensorManager::fillValuesJson(JsonObject& root) const {
+    enumerateCapabilities([&](const SensorCapability& cap, const SensorSample& sample){
+        if (cap.kind == SensorValueKind::Numeric) {
+            if (sample.valid && !std::isnan(sample.numeric)) {
+                root[cap.id] = sample.numeric;
+            } else {
+                root[cap.id] = nullptr;
+            }
+        } else {
+            if (sample.valid) {
+                root[cap.id] = sample.text;
+            } else {
+                root[cap.id] = nullptr;
+            }
+        }
+    });
+}
+
+void SensorManager::fillNumericJson(JsonObject& root) const {
+    enumerateCapabilities([&](const SensorCapability& cap, const SensorSample& sample){
+        if (cap.kind != SensorValueKind::Numeric) {
+            return;
+        }
+        if (sample.valid && !std::isnan(sample.numeric)) {
+            root[cap.id] = sample.numeric;
+        }
+    });
+}
+
+void SensorManager::describeCapabilities(JsonArray& array) const {
+    for (const auto& cap : _capabilities) {
+        JsonObject obj = array.createNestedObject();
+        obj["id"] = cap.id;
+        obj["label"] = cap.label;
+        if (!cap.unit.isEmpty()) {
+            obj["unit"] = cap.unit;
+        } else {
+            obj["unit"] = "";
+        }
+        obj["kind"] = (cap.kind == SensorValueKind::Numeric) ? "numeric" : "text";
+    }
+}
+
 // ——— Legacy getters ———
 
 SensorHumidityDHT11* SensorManager::getFirstDHT11() const {

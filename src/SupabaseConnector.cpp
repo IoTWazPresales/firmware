@@ -1,6 +1,7 @@
 
 #include "SupabaseConnector.h"
 #include "SensorManager.h"
+#include "Connector_Task.h"
 
 SupabaseConnector::SupabaseConnector() {
     _supabaseUrl = "https://hpywapfxlbbcjjhzcyqm.supabase.co";
@@ -88,7 +89,9 @@ void SupabaseConnector::collectAndSyncSensorData() {
         return;
     }
 
-    syncSensorData(jsonDoc);
+    if (!enqueueSensorSyncEvent(jsonDoc)) {
+        Serial.println("⚠️ Failed to enqueue sensor sync event");
+    }
 }
 
 bool SupabaseConnector::registerWithApiKey(const String& apiKey) {
@@ -210,14 +213,18 @@ void SupabaseConnector::storeCredentials(const String& deviceId, const String& a
 }
 
 void SupabaseConnector::syncSensorData(const DynamicJsonDocument& sensorData) {
+    String payload = formatSensorDataForSupabase(sensorData);
+    syncSensorData(payload);
+}
+
+void SupabaseConnector::syncSensorData(const String& payload) {
     if (!isConnected() || _isRequestInProgress) {
         Serial.println("❌ Cannot sync sensor data - not connected or request in progress");
         return;
     }
-    
-    String payload = formatSensorDataForSupabase(sensorData);
+
     Serial.println("🔄 Syncing sensor data to Supabase...");
-    
+
     if (makeRequest("/functions/v1/esp32-sensor-data", "POST", payload)) {
         Serial.println("✅ Sensor data synced to Supabase successfully!");
     } else {
@@ -441,4 +448,23 @@ String SupabaseConnector::formatSensorDataForSupabase(const DynamicJsonDocument&
     String result;
     serializeJson(formatted, result);
     return result;
+}
+
+void SupabaseConnector::handleCloudEvent(const CloudEvent& event) {
+    if (event.length == 0) {
+        return;
+    }
+    switch (event.type) {
+        case CloudEventType::SensorSync: {
+            String payload(event.payload, event.length);
+            syncSensorData(payload);
+            break;
+        }
+        case CloudEventType::RelaySync:
+            // TODO: implement queued relay syncs
+            break;
+        case CloudEventType::Status:
+            // TODO: implement queued status heartbeats
+            break;
+    }
 }

@@ -4,6 +4,7 @@
 #include <esp_task_wdt.h>
 
 QueueHandle_t gHybridConnectionQueue = nullptr;
+QueueHandle_t gCloudEventQueue = nullptr;
 
 void Connector_Manager(void* parameter) {
   auto* handles = static_cast<ConnectorHandles*>(parameter);
@@ -28,6 +29,14 @@ void Connector_Manager(void* parameter) {
         } else {
           Serial.println("❌ Supabase registration failed from queue");
         }
+      }
+    }
+
+    CloudEvent cloudEvent;
+    if (gCloudEventQueue &&
+        xQueueReceive(gCloudEventQueue, &cloudEvent, 0) == pdPASS) {
+      if (supa) {
+        supa->handleCloudEvent(cloudEvent);
       }
     }
 
@@ -64,6 +73,29 @@ bool enqueueHybridConnection(const String& apiKey) {
   BaseType_t res = xQueueSend(gHybridConnectionQueue, &cmd, 0);
   if (res != pdPASS) {
     Serial.println("⚠️ Hybrid connection queue full; request dropped");
+    return false;
+  }
+  return true;
+}
+
+bool enqueueSensorSyncEvent(const DynamicJsonDocument& doc) {
+  return enqueueSensorSyncEvent(JsonVariantConst(doc.as<JsonVariantConst>()));
+}
+
+bool enqueueSensorSyncEvent(const JsonVariantConst& variant) {
+  if (!gCloudEventQueue) {
+    return false;
+  }
+  CloudEvent event{};
+  event.type = CloudEventType::SensorSync;
+  String payload;
+  serializeJson(variant, payload);
+  event.length = std::min(payload.length(), sizeof(event.payload) - 1);
+  memcpy(event.payload, payload.c_str(), event.length);
+  event.payload[event.length] = '\0';
+
+  if (xQueueSend(gCloudEventQueue, &event, 0) != pdPASS) {
+    Serial.println("⚠️ Cloud event queue full; sensor sync dropped");
     return false;
   }
   return true;

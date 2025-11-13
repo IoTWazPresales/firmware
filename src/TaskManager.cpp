@@ -45,6 +45,12 @@ void TaskManager::begin() {
             Serial.println("❌ Failed to create hybrid connection queue");
         }
     }
+    if (!gCloudEventQueue) {
+        gCloudEventQueue = xQueueCreate(6, sizeof(CloudEvent));
+        if (!gCloudEventQueue) {
+            Serial.println("❌ Failed to create cloud event queue");
+        }
+    }
 
      xTaskCreatePinnedToCore(
         WiFi_Manager,

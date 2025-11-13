@@ -10,6 +10,7 @@
 
 // Forward declarations
 class SensorManager;
+struct CloudEvent;
 
 class SupabaseConnector {
 public:
@@ -19,6 +20,7 @@ public:
     void setSensorManager(SensorManager* manager);
     void setDeviceApiKey(const String& apiKey);
     void syncSensorData(const DynamicJsonDocument& sensorData);
+    void syncSensorData(const String& payload);
     void syncRelayStates(bool pumpState, bool intakeFanState, bool extractorFanState, bool lightsState);
     bool pollRelayCommands();
     void updateDeviceStatus();
@@ -33,6 +35,8 @@ public:
     const String& getDeviceId() const { return _deviceId; }
     const String& getApiKey() const { return _deviceApiKey; }
     
+    void handleCloudEvent(const CloudEvent& event);
+
 private:
     String _deviceApiKey;
     String _deviceId;

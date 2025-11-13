@@ -1,6 +1,7 @@
 #include "SensorEndpoints.h"
 #include "SensorDataCollector.h"
 #include "SupabaseConnector.h"
+#include "Connector_Task.h"
 
 SensorEndpoints::SensorEndpoints(AsyncWebServer* server, SensorManager* manager, SupabaseConnector* supabase)
     : _server(server), _manager(manager), _supabase(supabase) {
@@ -25,7 +26,7 @@ void SensorEndpoints::handleSensorData() {
             DynamicJsonDocument numericDoc(2048);
             JsonObject numeric = numericDoc.to<JsonObject>();
             _manager->fillNumericJson(numeric);
-            _supabase->syncSensorData(numericDoc);
+            enqueueSensorSyncEvent(numericDoc);
         }
 
         String response;

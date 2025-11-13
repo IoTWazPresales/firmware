@@ -1,6 +1,6 @@
 // src/components/Devices.tsx
 
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 import '../App.css';
 import { SnackbarProvider, useSnackbar } from 'notistack';
 import {
@@ -22,6 +22,7 @@ import {
   saveAllSensorAssignments,
   resetSensorAssignments,
 } from '../api/DeviceConfigService';
+import DriverPackageService, { DriverPackageSummary } from '../api/DriverPackageService';
 
 const ANALOG_PORTS = [
   { label: "J1", pin: 36, key: "A0" },
@@ -73,6 +74,8 @@ const Devices: FC = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [packages, setPackages] = useState<DriverPackageSummary[]>([]);
+  const [packageBusy, setPackageBusy] = useState(false);
 
   // load saved assignments once
   useEffect(() => {
@@ -101,7 +104,7 @@ const Devices: FC = () => {
   }, [scan.digitalPins, scan.analogPins]);
 
   // just fetch the *last* scan (fast)
-  const doScan = async () => {
+  const doScan = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchScannedDevices();
@@ -113,7 +116,7 @@ const Devices: FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [enqueueSnackbar]);
 
   // POST + fetch for manual “Scan Now”
   const handleTrigger = async () => {
@@ -159,12 +162,44 @@ const Devices: FC = () => {
     }
   };
 
+  const refreshPackages = useCallback(async () => {
+    try {
+      const list = await DriverPackageService.listPackages();
+      setPackages(list);
+    } catch (e) {
+      console.error(e);
+      enqueueSnackbar('Failed to load driver packages', { variant: 'warning' });
+    }
+  }, [enqueueSnackbar]);
+
+  const handlePackageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || event.target.files.length === 0) {
+      return;
+    }
+    const file = event.target.files[0];
+    setPackageBusy(true);
+    try {
+      await DriverPackageService.uploadPackage(file);
+      enqueueSnackbar('Driver package uploaded', { variant: 'success' });
+      await refreshPackages();
+    } catch (e: any) {
+      enqueueSnackbar(`Upload failed: ${e?.message ?? 'unknown error'}`, { variant: 'error' });
+    } finally {
+      event.target.value = '';
+      setPackageBusy(false);
+    }
+  };
+
   // on mount & every 30s poll the last scan
   useEffect(() => {
     doScan();
     const iv = setInterval(doScan, 30000);
     return () => clearInterval(iv);
-  }, []);
+  }, [doScan]);
+
+  useEffect(() => {
+    refreshPackages();
+  }, [refreshPackages]);
 
   const handleChange = (key: string, type: string) =>
     setAssignments(prev => ({ ...prev, [key]: type }));
@@ -305,6 +340,36 @@ const Devices: FC = () => {
             Scanning…
           </Typography>
         )}
+
+        <Paper sx={{ mt:4, p:2 }}>
+          <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:2 }}>
+            <Typography variant="h6">Driver Packages</Typography>
+            <Button component="label" variant="contained" disabled={packageBusy}>
+              Upload Package
+              <input type="file" hidden onChange={handlePackageUpload} />
+            </Button>
+          </Box>
+          {packages.length === 0 ? (
+            <Typography color="text.secondary">No packages installed yet.</Typography>
+          ) : (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Name</TableCell>
+                  <TableCell align="right">Size (bytes)</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {packages.map((pkg) => (
+                  <TableRow key={pkg.name}>
+                    <TableCell>{pkg.name}</TableCell>
+                    <TableCell align="right">{pkg.size.toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Paper>
       </Box>
     </SnackbarProvider>
   );

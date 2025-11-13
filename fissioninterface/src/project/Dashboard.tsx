@@ -1,13 +1,14 @@
 import React, { FC, RefObject, useEffect, useState } from 'react';
 import '../App.css';
 import { SnackbarProvider, useSnackbar } from 'notistack';
-import { IconButton, Box } from '@mui/material';
+import { IconButton, Box, Paper, Typography, Chip, Stack } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SensorCard from '../components/SensorCard';
 import CustomTheme from '../CustomTheme';
 import SensorService from '../api/SensorService';
 import { fetchThresholds, getDeviceStates, Thresholds, DeviceStates } from '../api/ControllerService';
-import { SensorCapabilityMeta, SensorResponse, SensorValues } from '../types/sensors';
+import { SensorCapabilityMeta, SensorValues } from '../types/sensors';
+import TelemetryService, { TelemetryResponse } from '../api/TelemetryService';
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
@@ -33,6 +34,45 @@ const parseNumeric = (value: unknown): number | null => {
 const toPositiveNumber = (value: unknown): number => {
   const numeric = parseNumeric(value);
   return numeric !== null && Number.isFinite(numeric) ? numeric : 0;
+};
+
+const extractRange = (thresholds: Thresholds | null, key: string) => {
+  const range = thresholds?.[key];
+  return {
+    min: range?.min ?? null,
+    max: range?.max ?? null,
+  };
+};
+
+const formatUptime = (ms: number | undefined) => {
+  if (!ms || ms <= 0) {
+    return '—';
+  }
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+};
+
+const formatBytes = (bytes: number | undefined) => {
+  if (!bytes || bytes <= 0) {
+    return '0 B';
+  }
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = bytes;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  return `${size.toFixed(1)} ${units[unitIndex]}`;
 };
 
 type DeviceStateKey = keyof DeviceStates;
@@ -65,7 +105,7 @@ const CARD_DEFINITIONS: DashboardCardConfig[] = [
     unit: '°C',
     chartType: 'sparkline',
     deviceStateKey: 'extractorFanState',
-    thresholdSelector: (thr) => ({ min: thr?.minTemp ?? null, max: thr?.maxTemp ?? null }),
+    thresholdSelector: (thr) => extractRange(thr, 'minTemp'),
   },
   {
     id: 'temperature',
@@ -73,7 +113,7 @@ const CARD_DEFINITIONS: DashboardCardConfig[] = [
     unit: '°C',
     chartType: 'sparkline',
     deviceStateKey: 'extractorFanState',
-    thresholdSelector: (thr) => ({ min: thr?.waterTemp?.min ?? null, max: thr?.waterTemp?.max ?? null }),
+    thresholdSelector: (thr) => extractRange(thr, 'waterTemp'),
   },
   {
     id: 'humidity',
@@ -81,7 +121,7 @@ const CARD_DEFINITIONS: DashboardCardConfig[] = [
     unit: '%',
     chartType: 'sparkline',
     deviceStateKey: 'extractorFanState',
-    thresholdSelector: (thr) => ({ min: thr?.humidity?.min ?? null, max: thr?.humidity?.max ?? null }),
+    thresholdSelector: (thr) => extractRange(thr, 'humidity'),
   },
   {
     id: 'soilMoisture',
@@ -90,7 +130,7 @@ const CARD_DEFINITIONS: DashboardCardConfig[] = [
     chartType: 'sparkline',
     deviceStateKey: 'pumpState',
     historyKey: 'soilMoisture',
-    thresholdSelector: (thr) => ({ min: thr?.minMoisture ?? null, max: thr?.maxMoisture ?? null }),
+    thresholdSelector: (thr) => extractRange(thr, 'soilMoisture'),
   },
   {
     id: 'tdsSens',
@@ -98,7 +138,7 @@ const CARD_DEFINITIONS: DashboardCardConfig[] = [
     unit: '%',
     chartType: 'sparkline',
     deviceStateKey: 'pumpState',
-    thresholdSelector: (thr) => ({ min: thr?.tdsSens?.min ?? null, max: thr?.tdsSens?.max ?? null }),
+    thresholdSelector: (thr) => extractRange(thr, 'tdsSens'),
   },
   {
     id: 'CO2',
@@ -106,7 +146,7 @@ const CARD_DEFINITIONS: DashboardCardConfig[] = [
     unit: 'ppm',
     chartType: 'sparkline',
     deviceStateKey: 'intakeFanState',
-    thresholdSelector: (thr) => ({ min: thr?.minCO2 ?? null, max: thr?.maxCO2 ?? null }),
+    thresholdSelector: (thr) => extractRange(thr, 'CO2'),
   },
   {
     id: 'TVOC',
@@ -114,7 +154,7 @@ const CARD_DEFINITIONS: DashboardCardConfig[] = [
     unit: 'ppb',
     chartType: 'sparkline',
     deviceStateKey: 'intakeFanState',
-    thresholdSelector: (thr) => ({ min: thr?.TVOC?.min ?? null, max: thr?.TVOC?.max ?? null }),
+    thresholdSelector: (thr) => extractRange(thr, 'TVOC'),
   },
   {
     id: 'airquality',
@@ -122,7 +162,7 @@ const CARD_DEFINITIONS: DashboardCardConfig[] = [
     unit: '',
     chartType: 'sparkline',
     deviceStateKey: 'intakeFanState',
-    thresholdSelector: (thr) => ({ min: thr?.airquality?.min ?? null, max: thr?.airquality?.max ?? null }),
+    thresholdSelector: (thr) => extractRange(thr, 'airquality'),
   },
   {
     id: 'soilph',
@@ -130,7 +170,7 @@ const CARD_DEFINITIONS: DashboardCardConfig[] = [
     unit: 'pH',
     chartType: 'sparkline',
     deviceStateKey: 'pumpState',
-    thresholdSelector: (thr) => ({ min: thr?.soilph?.min ?? null, max: thr?.soilph?.max ?? null }),
+    thresholdSelector: (thr) => extractRange(thr, 'soilph'),
   },
   {
     id: 'nitro',
@@ -138,7 +178,7 @@ const CARD_DEFINITIONS: DashboardCardConfig[] = [
     unit: 'mg/kg',
     chartType: 'sparkline',
     deviceStateKey: 'pumpState',
-    thresholdSelector: (thr) => ({ min: thr?.nitro?.min ?? null, max: thr?.nitro?.max ?? null }),
+    thresholdSelector: (thr) => extractRange(thr, 'nitro'),
   },
   {
     id: 'phos',
@@ -146,7 +186,7 @@ const CARD_DEFINITIONS: DashboardCardConfig[] = [
     unit: 'mg/kg',
     chartType: 'sparkline',
     deviceStateKey: 'pumpState',
-    thresholdSelector: (thr) => ({ min: thr?.phos?.min ?? null, max: thr?.phos?.max ?? null }),
+    thresholdSelector: (thr) => extractRange(thr, 'phos'),
   },
   {
     id: 'potas',
@@ -154,7 +194,7 @@ const CARD_DEFINITIONS: DashboardCardConfig[] = [
     unit: 'mg/kg',
     chartType: 'sparkline',
     deviceStateKey: 'pumpState',
-    thresholdSelector: (thr) => ({ min: thr?.potas?.min ?? null, max: thr?.potas?.max ?? null }),
+    thresholdSelector: (thr) => extractRange(thr, 'potas'),
   },
   {
     id: 'total',
@@ -196,39 +236,36 @@ const CARD_DEFINITIONS: DashboardCardConfig[] = [
     chartType: 'circular',
     deviceStateKey: 'lightsState',
     progressBuilder: (value) => ({ progressValue: Math.max(0, value ?? 0) }),
-    thresholdSelector: (thr) => ({ min: thr?.greenlight?.min ?? null, max: thr?.greenlight?.max ?? null }),
+    thresholdSelector: (thr) => extractRange(thr, 'greenlight'),
   },
 ];
 
 const Dashboard: FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const [sensorData, setSensorData] = useState<SensorValues>({});
-  const [sensorMeta, setSensorMeta] = useState<SensorCapabilityMeta[]>([]);
   const [thresholds, setThresholds] = useState<Thresholds | null>(null);
   const [deviceStates, setDeviceStates] = useState<DeviceStates | null>(null);
   const [cardConfigs, setCardConfigs] = useState<DashboardCardConfig[]>(CARD_DEFINITIONS);
   const [sensorHistory, setSensorHistory] = useState<Record<string, number[]>>({});
   const [loading, setLoading] = useState<boolean>(true);
+  const [telemetry, setTelemetry] = useState<TelemetryResponse | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [sensorResponse, thresholdsResponse, devicesResponse] = await Promise.all<[
-          SensorResponse,
-          Thresholds,
-          DeviceStates
-        ]>([
+        const [sensorResponse, thresholdsResponse, devicesResponse, telemetryResponse] = await Promise.all([
           SensorService.getSensorData(),
           fetchThresholds(),
           getDeviceStates(),
+          TelemetryService.fetchTelemetry().catch(() => null),
         ]);
 
         const values = sensorResponse?.values ?? {};
-        const metaList = sensorResponse?.meta ?? [];
+        const metaList: SensorCapabilityMeta[] = sensorResponse?.meta ?? [];
         setSensorData(values);
-        setSensorMeta(metaList);
         setThresholds(thresholdsResponse ?? null);
         setDeviceStates(devicesResponse ?? null);
+        setTelemetry((telemetryResponse as TelemetryResponse | null) ?? null);
 
         const metaIds = new Set(metaList.map((meta) => meta.id));
         const baseConfigs = metaList.length > 0
@@ -328,15 +365,65 @@ const Dashboard: FC = () => {
           </IconButton>
         )}
       >
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-            gap: 2,
-            padding: 1,
-          }}
-        >
-          {cardConfigs.map(renderCard)}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 1 }}>
+          {telemetry && (
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Device Health
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} useFlexGap flexWrap="wrap">
+                <Stack spacing={0.5}>
+                  <Typography variant="body2" color="text.secondary">
+                    Uptime
+                  </Typography>
+                  <Typography variant="body1">{formatUptime(telemetry.uptime_ms)}</Typography>
+                </Stack>
+                <Stack spacing={0.5}>
+                  <Typography variant="body2" color="text.secondary">
+                    Heap
+                  </Typography>
+                  <Typography variant="body1">
+                    {formatBytes(telemetry.free_heap)} free / {formatBytes(telemetry.max_alloc_heap)} max block
+                  </Typography>
+                </Stack>
+                <Stack spacing={0.5}>
+                  <Typography variant="body2" color="text.secondary">
+                    Wi-Fi
+                  </Typography>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip
+                      size="small"
+                      label={telemetry.wifi_connected ? 'Connected' : 'Offline'}
+                      color={telemetry.wifi_connected ? 'success' : 'default'}
+                    />
+                    {typeof telemetry.wifi_rssi === 'number' && (
+                      <Typography variant="body2" color="text.secondary">
+                        {telemetry.wifi_rssi} dBm
+                      </Typography>
+                    )}
+                  </Stack>
+                </Stack>
+                <Stack spacing={0.5}>
+                  <Typography variant="body2" color="text.secondary">
+                    Queues
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Hybrid: {telemetry.queues?.hybrid_available ?? '—'} | Cloud: {telemetry.queues?.cloud_available ?? '—'}
+                  </Typography>
+                </Stack>
+              </Stack>
+            </Paper>
+          )}
+
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: 2,
+            }}
+          >
+            {cardConfigs.map(renderCard)}
+          </Box>
         </Box>
       </SnackbarProvider>
     </CustomTheme>

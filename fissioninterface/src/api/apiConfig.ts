@@ -20,24 +20,29 @@ export const API_CONFIG = {
         LOGS: `${BASE_URL}/logs`,
     },
     CONTROLLER: {
-   DATA:               `${BASE_URL}/relay/getDeviceStates`,
-    GET_THRESHOLDS:     `${BASE_URL}/relay/getThresholds`,
-    SET_THRESHOLDS:     `${BASE_URL}/relay/setThresholds`,
-    GET_RELAY_CONFIG:   `${BASE_URL}/relay/config`,
-    SET_RELAY_CONFIG:   `${BASE_URL}/relay/config`,
-    SAVE_CONFIG:        `${BASE_URL}/relay/saveConfig`,
-    SENSORS:            `${BASE_URL}/sensors`,
-
+        DATA: `${BASE_URL}/relay/getDeviceStates`,
+        GET_THRESHOLDS: `${BASE_URL}/relay/getThresholds`,
+        SET_THRESHOLDS: `${BASE_URL}/relay/setThresholds`,
+        GET_RELAY_CONFIG: `${BASE_URL}/relay/config`,
+        SET_RELAY_CONFIG: `${BASE_URL}/relay/config`,
+        SAVE_CONFIG: `${BASE_URL}/relay/saveConfig`,
+        SENSORS: `${BASE_URL}/sensors`,
     },
     SCANNER: {
         DEVICES: `${BASE_URL}/scan`,
         CONFIG: `${BASE_URL}/config`,
         TRIGGER: `${BASE_URL}/scan/trigger`,
-        RESET:   `${BASE_URL}/config/reset`,
-
+        RESET: `${BASE_URL}/config/reset`,
+    },
+    TELEMETRY: {
+        STATUS: `${BASE_URL}/telemetry`,
+    },
+    DRIVER_PACKAGES: {
+        LIST: `${BASE_URL}/driver-packages`,
+        UPLOAD: `${BASE_URL}/driver-packages`,
     },
     SETUP: {
-    GET_IP:     `${BASE_URL ?? ''}/setup`,    // maps to your server.on("/setup",...)
-    REGISTER:   `${BASE_URL ?? ''}/register`, // maps to your server.on("/register",...)
-  },
+        GET_IP: `${BASE_URL ?? ''}/setup`,
+        REGISTER: `${BASE_URL ?? ''}/register`,
+    },
 };

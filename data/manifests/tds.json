@@ -1,0 +1,10 @@
+{
+  "driver": "tdsSensor",
+  "label": "Solution TDS",
+  "unit": "ppm",
+  "autoDetect": false,
+  "capabilities": [
+    { "id": "tdsSens", "label": "TDS", "unit": "ppm" }
+  ],
+  "tags": ["water", "nutrients"]
+}

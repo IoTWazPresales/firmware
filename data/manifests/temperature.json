@@ -1,0 +1,10 @@
+{
+  "driver": "temperatureSensor",
+  "label": "Water Temperature",
+  "unit": "C",
+  "autoDetect": true,
+  "capabilities": [
+    { "id": "temperature", "label": "Water Temperature", "unit": "C" }
+  ],
+  "tags": ["gpio", "water"]
+}

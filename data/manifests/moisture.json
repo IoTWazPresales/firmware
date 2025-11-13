@@ -1,0 +1,11 @@
+{
+  "driver": "moistureSensor",
+  "label": "Soil Moisture",
+  "unit": "%",
+  "autoDetect": false,
+  "capabilities": [
+    { "id": "moisture", "label": "Soil Moisture", "unit": "%" },
+    { "id": "soilMoisture", "label": "Soil Moisture", "unit": "%" }
+  ],
+  "tags": ["gpio", "soil"]
+}

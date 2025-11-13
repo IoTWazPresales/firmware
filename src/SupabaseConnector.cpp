@@ -417,34 +417,28 @@ bool SupabaseConnector::makeRequest(const String& endpoint, const String& method
 }
 
 String SupabaseConnector::formatSensorDataForSupabase(const DynamicJsonDocument& data) {
-    DynamicJsonDocument formatted(512); // Reduced size
-    
-    // Map essential sensor data to Supabase expected format
-    formatted["temperature"] = data["temperature"];
-    formatted["humidity"] = data["humidity"];
-    formatted["airtemp"] = data["airtemp"];
-    formatted["ph"] = data["ph"];
-    formatted["airquality"] = data["airquality"];
-    formatted["TVOC"] = data["TVOC"];
-    formatted["CO2"] = data["CO2"];
-    formatted["tdsSens"] = data["tdsSens"];
-    formatted["Lux"] = data["lux"];
-    formatted["blue"] = data["blue"];
-    formatted["green"] = data["green"];
-    formatted["red"] = data["red"];
-    formatted["farRed"] = data["farRed"];
-    formatted["ChlorophyllIndexRedGreen"] = data["ChlorophyllIndexRedGreen"];
-    formatted["ChlorophyllIndexRedBlue"] = data["ChlorophyllIndexRedBlue"];
-    formatted["ndvi"] = data["ndvi"];
-    formatted["greenIntensity"] = data["greenIntensity"];
-    formatted["moisture"] = data["moisture"];
-    formatted["soilMoisture"] = data["soilMoisture"];
-    formatted["total"] = data["total"];
-    formatted["nitro"] = data["nitro"];
-    formatted["potas"] = data["potas"];
-    formatted["phos"] = data["phos"];
-    formatted["soilph"] = data["soilph"];
-    
+    DynamicJsonDocument formatted(4096);
+    JsonObject root = formatted.to<JsonObject>();
+    JsonObject values = root.createNestedObject("values");
+
+    JsonObjectConst input = data.as<JsonObjectConst>();
+    if (!input.isNull()) {
+        for (JsonPairConst kv : input) {
+            values[kv.key()] = kv.value();
+            root[kv.key()] = kv.value();
+        }
+    }
+
+    root["device_id"] = _deviceId;
+    root["timestamp"] = millis();
+    root["meta_version"] = 1;
+
+    if (_sensorManager) {
+        JsonArray meta = root.createNestedArray("meta");
+        _sensorManager->describeCapabilities(meta);
+        root["capability_count"] = meta.size();
+    }
+
     String result;
     serializeJson(formatted, result);
     return result;

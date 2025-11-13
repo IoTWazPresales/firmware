@@ -19,6 +19,7 @@
 #include "AtmosphereSensor.h"
 #include "SpectralSensor.h"
 #include "NPKSensor.h"
+#include "SensorManifest.h"
 
 enum class SensorValueKind {
     Numeric,
@@ -88,6 +89,7 @@ private:
     std::vector<SensorCapability> _capabilities;
     std::map<String, SensorSample> _latestSamples;
     bool _needsCapabilityRefresh = true;
+    std::vector<SensorManifest> _manifests;
 
     // GPIO lookup for direct pins
     const std::map<String,uint8_t> _pinToGpio = {
@@ -107,6 +109,9 @@ private:
                                 const String& label,
                                 std::function<String()> reader);
     void updateSamples();
+    void loadManifests();
+    String manifestLabelFor(const String& capabilityId, const String& fallback) const;
+    String manifestUnitFor(const String& capabilityId, const String& fallback) const;
 };
 
 #endif // SENSOR_MANAGER_H

@@ -1,0 +1,12 @@
+{
+  "driver": "atmosphereSensor",
+  "label": "Air Quality",
+  "unit": "",
+  "autoDetect": true,
+  "capabilities": [
+    { "id": "CO2", "label": "CO2", "unit": "ppm" },
+    { "id": "TVOC", "label": "TVOC", "unit": "ppb" },
+    { "id": "airquality", "label": "Air Quality Index", "unit": "" }
+  ],
+  "tags": ["i2c", "environment"]
+}

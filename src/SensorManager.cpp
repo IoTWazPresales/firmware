@@ -122,6 +122,7 @@ void SensorManager::loadConfig() {
 void SensorManager::begin() {
     Wire.begin(I2C_SDA, I2C_SCL);
     loadConfig();
+    loadManifests();
 
     for (auto *p: _dht11Sensors)      p->begin();
     for (auto *p: _tempSensors)       p->begin();
@@ -144,8 +145,8 @@ void SensorManager::registerNumericCapability(const String& id,
                                               std::function<float()> reader) {
     SensorCapability cap;
     cap.id = id;
-    cap.label = label;
-    cap.unit = unit;
+    cap.label = manifestLabelFor(id, label);
+    cap.unit = manifestUnitFor(id, unit);
     cap.kind = SensorValueKind::Numeric;
     cap.supplier = [reader]() -> SensorSample {
         if (!reader) {
@@ -162,8 +163,8 @@ void SensorManager::registerTextCapability(const String& id,
                                            std::function<String()> reader) {
     SensorCapability cap;
     cap.id = id;
-    cap.label = label;
-    cap.unit = "";
+    cap.label = manifestLabelFor(id, label);
+    cap.unit = manifestUnitFor(id, "");
     cap.kind = SensorValueKind::Text;
     cap.supplier = [reader]() -> SensorSample {
         if (!reader) {
@@ -376,6 +377,40 @@ void SensorManager::describeCapabilities(JsonArray& array) const {
         }
         obj["kind"] = (cap.kind == SensorValueKind::Numeric) ? "numeric" : "text";
     }
+}
+
+void SensorManager::loadManifests() {
+    _manifests = SensorManifest::loadAll(LittleFS);
+}
+
+String SensorManager::manifestLabelFor(const String& capabilityId, const String& fallback) const {
+    const SensorManifest* manifest = findManifestForCapability(_manifests, capabilityId);
+    if (!manifest) {
+        return fallback;
+    }
+    auto it = manifest->capabilityLabels.find(capabilityId);
+    if (it != manifest->capabilityLabels.end() && it->second.length() > 0) {
+        return it->second;
+    }
+    if (manifest->label.length() > 0) {
+        return manifest->label;
+    }
+    return fallback;
+}
+
+String SensorManager::manifestUnitFor(const String& capabilityId, const String& fallback) const {
+    const SensorManifest* manifest = findManifestForCapability(_manifests, capabilityId);
+    if (!manifest) {
+        return fallback;
+    }
+    auto it = manifest->capabilityUnits.find(capabilityId);
+    if (it != manifest->capabilityUnits.end() && it->second.length() > 0) {
+        return it->second;
+    }
+    if (manifest->unit.length() > 0) {
+        return manifest->unit;
+    }
+    return fallback;
 }
 
 // ——— Legacy getters ———

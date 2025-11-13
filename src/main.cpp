@@ -30,6 +30,9 @@
 #include <Preferences.h>
 #include "TaskManager.h"
 #include "Connector_Task.h"
+#include "TelemetryService.h"
+#include "DriverPackageManager.h"
+#include "DriverPackageService.h"
 
 
 SupabaseConnector supabaseConnector;
@@ -67,6 +70,9 @@ SensorDataCollector    dataCollector(
 );
 DataLogger             dataLogger(&fileSystem, &dataCollector, &server);
 OTAHandler             otaHandler;
+TelemetryService       telemetryService(&server);
+DriverPackageManager   driverPackageManager(&LittleFS);
+DriverPackageService   driverPackageService(&server, &driverPackageManager, &LittleFS);
 
 
 const char* otaPassword = "0611401627";

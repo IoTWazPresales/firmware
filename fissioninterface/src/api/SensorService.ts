@@ -29,4 +29,6 @@ class SensorService {
     }
 }
 
-export default new SensorService();
+const sensorService = new SensorService();
+
+export default sensorService;

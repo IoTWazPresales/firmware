@@ -1,0 +1,11 @@
+{
+  "driver": "sensorHumidityDHT11",
+  "label": "Air Temperature/Humidity",
+  "unit": "",
+  "autoDetect": true,
+  "capabilities": [
+    { "id": "airtemp", "label": "Air Temperature", "unit": "C" },
+    { "id": "humidity", "label": "Relative Humidity", "unit": "%" }
+  ],
+  "tags": ["gpio", "environment", "dht11"]
+}

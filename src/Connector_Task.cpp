@@ -17,9 +17,9 @@ void Connector_Manager(void* parameter) {
     HybridConnectionCommand cmd;
     if (gHybridConnectionQueue &&
         xQueueReceive(gHybridConnectionQueue, &cmd, 0) == pdPASS) {
-      String apiKey = String(cmd.apiKey);
-      if (apiKey.length() > 0) {
+      if (strlen(cmd.apiKey) > 0) {
         Serial.println("🚀 Processing queued hybrid connection request");
+        String apiKey = String(cmd.apiKey);
         bool httpSuccess = supa->registerWithApiKey(apiKey);
         if (httpSuccess) {
           Serial.println("✅ Supabase registration completed from queue");

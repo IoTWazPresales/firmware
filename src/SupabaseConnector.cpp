@@ -274,7 +274,7 @@ bool SupabaseConnector::pollRelayCommands() {
     
     if (httpCode == 200) {
         String response = _http.getString();
-        Serial.println("📥 Polled relay commands from Supabase: " + response);
+        Serial.printf("📥 Polled relay commands from Supabase: %s\n", response.c_str());
         hasCommands = response.length() > 10; // Basic check for valid JSON
     } else if (httpCode != -11 && httpCode != -4) { // Don't log timeout/connection errors
         Serial.printf("❌ Failed to poll relay commands: %d\n", httpCode);
@@ -402,7 +402,7 @@ bool SupabaseConnector::makeRequest(const String& endpoint, const String& method
         if (httpCode == 401) {
             Serial.println("❌ 401 Unauthorized - API key may be invalid or expired");
             String errorResponse = _http.getString();
-            Serial.println("📥 Error response: " + errorResponse);
+            Serial.printf("📥 Error response: %s\n", errorResponse.c_str());
         } else if (httpCode != -11 && httpCode != -4) {
             String errorResponse = _http.getString();
             Serial.printf("❌ Supabase request failed: %d - %s\n", httpCode, errorResponse.c_str());

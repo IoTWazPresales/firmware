@@ -76,22 +76,22 @@ void SensorManager::loadConfig() {
 
     for (auto kv : cfg.as<JsonObject>()) {
         String key  = kv.key().c_str();
-        String type = kv.value().as<String>();
+        const char* type = kv.value().as<const char*>();
 
         // — I²C sockets J1–J4 —
         if (key.startsWith("J")) {
-            if (type == "spectral") {
+            if (strcmp(type, "spectral") == 0) {
                 _spectralSensors.push_back(new SpectralSensor(_server, I2C_SDA, I2C_SCL));
             } 
-            else if (type == "airQuality") {
+            else if (strcmp(type, "airQuality") == 0) {
                 _atmosphereSensors.push_back(new AtmosphereSensor(_server, I2C_SDA, I2C_SCL));
-            } else if (type == "npk") {
+            } else if (strcmp(type, "npk") == 0) {
                 _npkSensors.push_back(new NPKSensor(_server));
             }
             continue;
         }
 
-        if (type == "rtcSensor") {
+        if (strcmp(type, "rtcSensor") == 0) {
             if (!_rtcSensor) _rtcSensor = new SensorRTC(_server);
             continue;
         }
@@ -100,19 +100,19 @@ void SensorManager::loadConfig() {
         if (it == _pinToGpio.end()) continue;
         int gpio = it->second;
 
-        if (type == "airTempHumidity") {
+        if (strcmp(type, "airTempHumidity") == 0) {
             _dht11Sensors.push_back(new SensorHumidityDHT11(_server, gpio, DHT11));
         } 
-        else if (type == "temperatureSensor") {
+        else if (strcmp(type, "temperatureSensor") == 0) {
             _tempSensors.push_back(new TemperatureSensor(_server, gpio));
         } 
-        else if (type == "tdsSensor") {
+        else if (strcmp(type, "tdsSensor") == 0) {
             _tdsSensors.push_back(new SensorTDS(_server, gpio));
         } 
-        else if (type == "phSensor") {
+        else if (strcmp(type, "phSensor") == 0) {
             _phSensors.push_back(new SensorPH(_server, gpio));
         } 
-        else if (type == "moistureSensor") {
+        else if (strcmp(type, "moistureSensor") == 0) {
             _moistureSensors.push_back(new SensorMoisture(_server, gpio));
         }
     }

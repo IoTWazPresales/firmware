@@ -6,6 +6,7 @@
 #include <ArduinoJson.h>
 #include <AsyncJson.h>
 #include "AuthMiddleware.h"
+#include "RateLimitMiddleware.h"
 
 extern SensorManager sensorManager;
 
@@ -148,6 +149,12 @@ void RelayControlEndpoint::handleRelayData() {
   //
   _server->on("/api/relay/saveConfig", HTTP_POST,
     [](AsyncWebServerRequest* req){
+      // Rate limiting
+      extern RateLimiter apiRateLimiter;
+      if (!RateLimitMiddleware::checkRateLimit(req, apiRateLimiter)) {
+        return; // Response already sent
+      }
+      
       if (!AuthMiddleware::checkApiKey(req)) {
         req->send(401, "application/json", "{\"status\":\"error\",\"message\":\"Unauthorized\"}");
         return;

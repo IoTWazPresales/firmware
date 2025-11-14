@@ -39,6 +39,10 @@
 #include "Logger.h"
 #include "WebSocketService.h"
 #include "DeviceScanner.h"
+#include "RateLimiter.h"
+#include "RateLimitMiddleware.h"
+#include "ErrorRecovery.h"
+#include "NetworkResilience.h"
 
 
 SupabaseConnector supabaseConnector;
@@ -82,6 +86,10 @@ DriverPackageService   driverPackageService(&server, &driverPackageManager, &Lit
 ManifestService        manifestService(&server, &sensorManager);
 WebSocketService       webSocketService(&server, &sensorManager);
 
+// Rate limiting (60 requests per minute per IP)
+RateLimiter            apiRateLimiter(60, 60000);
+RateLimiter            sensorRateLimiter(120, 60000); // More lenient for sensor endpoints
+
 
 const char* otaPassword = "0611401627";
 
@@ -101,6 +109,13 @@ void setup() {
     
     Logger::setLevel(LogLevel::INFO);
     Logger::info("🚀 Firmware starting...");
+    
+    // Restore critical state
+    ErrorRecovery::restoreCriticalState();
+    
+    // Save initial state
+    ErrorRecovery::saveCriticalState();
+    
       // ─── TASK WATCHDOG ──────────────────────────────────────────────
     // 10-second timeout, panic=true will abort() on timeout
     esp_task_wdt_init(10, /* panic */ true);
@@ -245,8 +260,12 @@ void setup() {
     
     if (configEmpty) {
         Serial.println("🔍 Config empty, attempting auto-detection...");
-        sensorManager.autoDetectSensors(&scanner);
-        sensorManager.loadConfig(); // Reload after auto-detection
+        try {
+            sensorManager.autoDetectSensors(&scanner);
+            sensorManager.loadConfig(); // Reload after auto-detection
+        } catch (...) {
+            ErrorRecovery::logError(ErrorSeverity::WARNING, "SensorManager", "Auto-detection failed, continuing with empty config");
+        }
     }
     
     Serial.println("=== HYBRID DEVICE READY ===");
@@ -264,5 +283,13 @@ void setup() {
 void loop() {
     esp32React.loop();
     webSocketService.loop();
+    
+    // Periodic state save (every 5 minutes)
+    static unsigned long lastStateSave = 0;
+    if (millis() - lastStateSave >= 300000) {
+        ErrorRecovery::saveCriticalState();
+        lastStateSave = millis();
+    }
+    
     vTaskDelay(pdMS_TO_TICKS(25));
 }

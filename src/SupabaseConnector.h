@@ -7,6 +7,7 @@
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
+#include "NetworkResilience.h"
 
 // Forward declarations
 class SensorManager;
@@ -23,7 +24,7 @@ public:
     void syncSensorData(const String& payload);
     void syncRelayStates(bool pumpState, bool intakeFanState, bool extractorFanState, bool lightsState);
     bool pollRelayCommands();
-    void updateDeviceStatus();
+    bool updateDeviceStatus();
     void updateDeviceStatusOffline();
     bool isConnected();
     void storeCredentials(const String& deviceId, const String& apiKey);
@@ -49,10 +50,11 @@ private:
     unsigned long _lastPoll;
     unsigned long _lastStatusUpdate;
     bool _isRequestInProgress;
+    NetworkResilience _networkResilience;
     
     bool makeRequest(const String& endpoint, const String& method, const String& payload = "");
     String formatSensorDataForSupabase(const DynamicJsonDocument& data);
-    void collectAndSyncSensorData();
+    bool collectAndSyncSensorData();
 };
 
 #endif

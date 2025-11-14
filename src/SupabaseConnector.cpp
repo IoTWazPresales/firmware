@@ -3,13 +3,14 @@
 #include "SensorManager.h"
 #include "Connector_Task.h"
 
-SupabaseConnector::SupabaseConnector() {
-    _supabaseUrl = "https://hpywapfxlbbcjjhzcyqm.supabase.co";
-    _lastSync = 0;
-    _lastPoll = 0;
-    _lastStatusUpdate = 0;
-    _sensorManager = nullptr;
-    _isRequestInProgress = false;
+SupabaseConnector::SupabaseConnector() 
+    : _supabaseUrl("https://hpywapfxlbbcjjhzcyqm.supabase.co"),
+      _lastSync(0),
+      _lastPoll(0),
+      _lastStatusUpdate(0),
+      _sensorManager(nullptr),
+      _isRequestInProgress(false),
+      _networkResilience(1000, 60000, 2.0f) {
 }
 
 void SupabaseConnector::begin() {
@@ -44,6 +45,11 @@ void SupabaseConnector::loop() {
         return;
     }
     
+    // Check network resilience before attempting operations
+    if (!_networkResilience.shouldRetry()) {
+        return; // Still in backoff period
+    }
+    
     unsigned long currentTime = millis();
     
     // Stagger operations to prevent simultaneous SSL connections
@@ -51,30 +57,42 @@ void SupabaseConnector::loop() {
     
     // Priority 1: Update device status every 2 minutes (less frequent)
     if (currentTime - _lastStatusUpdate >= 120000) { // 2 minutes
-        updateDeviceStatus();
+        if (updateDeviceStatus()) {
+            _networkResilience.recordSuccess();
+        } else {
+            _networkResilience.recordFailure();
+        }
         _lastStatusUpdate = currentTime;
         return; // Exit to prevent other operations this cycle
     }
     
     // Priority 2: Sync sensor data every 30 seconds (less frequent)
     if (currentTime - _lastSync >= 30000) { // 30 seconds
-        collectAndSyncSensorData();
+        if (collectAndSyncSensorData()) {
+            _networkResilience.recordSuccess();
+        } else {
+            _networkResilience.recordFailure();
+        }
         _lastSync = currentTime;
         return; // Exit to prevent other operations this cycle
     }
     
     // Priority 3: Poll for relay commands every 15 seconds (less frequent)
     if (currentTime - _lastPoll >= 15000) { // 15 seconds
-        pollRelayCommands();
+        if (pollRelayCommands()) {
+            _networkResilience.recordSuccess();
+        } else {
+            _networkResilience.recordFailure();
+        }
         _lastPoll = currentTime;
         return; // Exit to prevent other operations this cycle
     }
 }
 
-void SupabaseConnector::collectAndSyncSensorData() {
+bool SupabaseConnector::collectAndSyncSensorData() {
     if (!_sensorManager || _isRequestInProgress) {
         Serial.println("⚠️ No SensorManager available or request in progress");
-        return;
+        return false;
     }
     
     Serial.println("🔄 Collecting sensor data for Supabase sync...");
@@ -86,12 +104,15 @@ void SupabaseConnector::collectAndSyncSensorData() {
 
     if (root.size() == 0) {
         Serial.println("⚠️ No numeric sensor data available for Supabase sync");
-        return;
+        return false;
     }
 
     if (!enqueueSensorSyncEvent(jsonDoc)) {
         Serial.println("⚠️ Failed to enqueue sensor sync event");
+        return false;
     }
+    
+    return true;
 }
 
 bool SupabaseConnector::registerWithApiKey(const String& apiKey) {
@@ -285,8 +306,8 @@ bool SupabaseConnector::pollRelayCommands() {
     return hasCommands;
 }
 
-void SupabaseConnector::updateDeviceStatus() {
-    if (!isConnected() || _isRequestInProgress) return;
+bool SupabaseConnector::updateDeviceStatus() {
+    if (!isConnected() || _isRequestInProgress) return false;
     
     Serial.println("🔄 Updating device status to ONLINE...");
     
@@ -312,7 +333,9 @@ void SupabaseConnector::updateDeviceStatus() {
     serializeJson(doc, payload);
     
     int httpCode = _http.POST(payload);
-    if (httpCode >= 200 && httpCode < 300) {
+    bool success = (httpCode >= 200 && httpCode < 300);
+    
+    if (success) {
         Serial.println("✅ Device status updated to ONLINE successfully!");
     } else if (httpCode != -11 && httpCode != -4) {
         String errorResponse = _http.getString();
@@ -321,6 +344,7 @@ void SupabaseConnector::updateDeviceStatus() {
     
     _http.end();
     _isRequestInProgress = false;
+    return success;
 }
 
 void SupabaseConnector::updateDeviceStatusOffline() {

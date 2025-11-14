@@ -4,6 +4,7 @@
 #include "Connector_Task.h"
 #include <AsyncJson.h>
 #include "AuthMiddleware.h"
+#include "RateLimitMiddleware.h"
 
 SensorEndpoints::SensorEndpoints(AsyncWebServer* server, SensorManager* manager, SupabaseConnector* supabase)
     : _server(server), _manager(manager), _supabase(supabase) {
@@ -12,6 +13,12 @@ SensorEndpoints::SensorEndpoints(AsyncWebServer* server, SensorManager* manager,
 
 void SensorEndpoints::handleSensorData() {
     _server->on("/api/sensor", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        // Rate limiting (more lenient for sensor data)
+        extern RateLimiter sensorRateLimiter;
+        if (!RateLimitMiddleware::checkRateLimit(request, sensorRateLimiter, 120, 60000)) {
+            return; // Response already sent
+        }
+        
         // Auth check (public read-only endpoint, but log access)
         if (!AuthMiddleware::checkApiKey(request)) {
             request->send(401, "application/json", "{\"status\":\"error\",\"message\":\"Unauthorized\"}");

@@ -4,6 +4,7 @@
 #include <ArduinoJson.h>
 #include <cmath>
 #include <utility>
+#include <cstring>
 
 // I²C pins (unchanged)
 static constexpr int I2C_SDA = 21;

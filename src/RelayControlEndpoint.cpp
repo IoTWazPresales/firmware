@@ -4,6 +4,7 @@
 #include "SensorManager.h"
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include <AsyncJson.h>
 
 extern SensorManager sensorManager;
 
@@ -38,8 +39,9 @@ void RelayControlEndpoint::handleRelayData() {
   // 1) List available sensor parameters
   //
   _server->on("/api/sensors", HTTP_GET, [this](AsyncWebServerRequest* req){
-    DynamicJsonDocument doc(1024);
-    JsonArray arr = doc.createNestedArray("parameters");
+    AsyncJsonResponse* response = new AsyncJsonResponse(false, 1024);
+    JsonObject root = response->getRoot();
+    JsonArray arr = root.createNestedArray("parameters");
     sensorManager.enumerateCapabilities([&](const SensorCapability& cap, const SensorSample& sample){
       if (cap.kind == SensorValueKind::Numeric) {
         JsonObject obj = arr.createNestedObject();
@@ -49,25 +51,26 @@ void RelayControlEndpoint::handleRelayData() {
         obj["kind"] = "numeric";
       }
     });
-    String s; serializeJson(doc, s);
-    req->send(200, "application/json", s);
+    response->setLength();
+    req->send(response);
   });
 
   //
   // 2) Live device states with Supabase sync
   //
   auto deviceStateHandler = [this](AsyncWebServerRequest* req){
-    DynamicJsonDocument d(512);
-    d["pumpState"]        = _relayControl->getWaterPumpState();
-    d["intakeFanState"]   = _relayControl->getIntakeFanState();
-    d["extractorFanState"]= _relayControl->getExhaustFanState();
-    d["lightsState"]      = _relayControl->getLightsState();
+    AsyncJsonResponse* response = new AsyncJsonResponse(false, 256);
+    JsonObject root = response->getRoot();
+    root["pumpState"]        = _relayControl->getWaterPumpState();
+    root["intakeFanState"]   = _relayControl->getIntakeFanState();
+    root["extractorFanState"]= _relayControl->getExhaustFanState();
+    root["lightsState"]      = _relayControl->getLightsState();
     
     // Sync to Supabase if connected
     syncRelayStateToSupabase();
     
-    String s; serializeJson(d, s);
-    req->send(200, "application/json", s);
+    response->setLength();
+    req->send(response);
   };
   _server->on("/api/relay/GetDeviceStates",  HTTP_GET, deviceStateHandler);
   _server->on("/api/relay/getDeviceStates",  HTTP_GET, deviceStateHandler);
@@ -77,13 +80,18 @@ void RelayControlEndpoint::handleRelayData() {
   //
   _server->on("/api/relay/getThresholds", HTTP_GET, [this](AsyncWebServerRequest* req){
     File f = LittleFS.open("/thresholds.json", "r");
-    DynamicJsonDocument d(512);
+    AsyncJsonResponse* response = new AsyncJsonResponse(false, 512);
+    JsonObject root = response->getRoot();
     if (f && f.size()>0) {
+      DynamicJsonDocument d(512);
       deserializeJson(d, f);
       f.close();
+      for (JsonPair kv : d.as<JsonObject>()) {
+        root[kv.key()] = kv.value();
+      }
     }
-    String s; serializeJson(d, s);
-    req->send(200, "application/json", s);
+    response->setLength();
+    req->send(response);
   });
 
   //
@@ -109,16 +117,17 @@ void RelayControlEndpoint::handleRelayData() {
     }
 
     // merge
-    DynamicJsonDocument out(2048);
-    JsonArray arr = out.createNestedArray("relays");
+    AsyncJsonResponse* response = new AsyncJsonResponse(false, 1536);
+    JsonObject root = response->getRoot();
+    JsonArray arr = root.createNestedArray("relays");
     for (JsonObject r : rd["relays"].as<JsonArray>()) {
       JsonObject o = arr.createNestedObject();
-      String id        = r["id"].as<String>();
-      int    pin       = r["pin"].as<int>();
-      String parameter = r["parameter"].as<String>();
+      const char* id = r["id"].as<const char*>();
+      int pin = r["pin"].as<int>();
+      const char* parameter = r["parameter"].as<const char*>();
 
-      o["id"]        = id;
-      o["pin"]       = pin;
+      o["id"] = id;
+      o["pin"] = pin;
       o["parameter"] = parameter;
       if (td.containsKey(id)) {
         o["min"] = td[id]["min"].as<float>();
@@ -129,8 +138,8 @@ void RelayControlEndpoint::handleRelayData() {
       }
     }
 
-    String s; serializeJson(out, s);
-    req->send(200, "application/json", s);
+    response->setLength();
+    req->send(response);
   });
 
   //

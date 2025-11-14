@@ -49,7 +49,7 @@ SensorManager::~SensorManager() {
 }
 
 void SensorManager::loadConfig() {
-    DynamicJsonDocument cfg(4096);
+    DynamicJsonDocument cfg(2048);
     File f = LittleFS.open("/config.json","r");
     if (f && f.size()>0) {
         deserializeJson(cfg, f);

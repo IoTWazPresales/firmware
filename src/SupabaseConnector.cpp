@@ -80,7 +80,7 @@ void SupabaseConnector::collectAndSyncSensorData() {
     Serial.println("🔄 Collecting sensor data for Supabase sync...");
     
     // Create sensor data JSON
-    DynamicJsonDocument jsonDoc(2048);
+    DynamicJsonDocument jsonDoc(1536);
     JsonObject root = jsonDoc.to<JsonObject>();
     _sensorManager->fillNumericJson(root);
 
@@ -100,7 +100,7 @@ bool SupabaseConnector::registerWithApiKey(const String& apiKey) {
         return false;
     }
     
-    Serial.println("🔄 Validating API key: " + apiKey.substring(0, 15) + "...");
+    Serial.printf("🔄 Validating API key: %.15s...\n", apiKey.c_str());
     
     // First validate the API key
     if (!validateApiKey(apiKey)) {
@@ -417,7 +417,7 @@ bool SupabaseConnector::makeRequest(const String& endpoint, const String& method
 }
 
 String SupabaseConnector::formatSensorDataForSupabase(const DynamicJsonDocument& data) {
-    DynamicJsonDocument formatted(4096);
+    DynamicJsonDocument formatted(2048);
     JsonObject root = formatted.to<JsonObject>();
     JsonObject values = root.createNestedObject("values");
 

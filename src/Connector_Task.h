@@ -35,7 +35,7 @@ enum class CloudEventType : uint8_t {
 struct CloudEvent {
   CloudEventType type;
   size_t length;
-  char payload[512];
+  char payload[256];
 };
 
 bool enqueueSensorSyncEvent(const DynamicJsonDocument& doc);

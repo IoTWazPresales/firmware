@@ -88,10 +88,8 @@ bool enqueueSensorSyncEvent(const JsonVariantConst& variant) {
   }
   CloudEvent event{};
   event.type = CloudEventType::SensorSync;
-  String payload;
-  serializeJson(variant, payload);
-  event.length = std::min(payload.length(), sizeof(event.payload) - 1);
-  memcpy(event.payload, payload.c_str(), event.length);
+  // Serialize directly to fixed buffer to avoid String allocation
+  event.length = serializeJson(variant, event.payload, sizeof(event.payload) - 1);
   event.payload[event.length] = '\0';
 
   if (xQueueSend(gCloudEventQueue, &event, 0) != pdPASS) {

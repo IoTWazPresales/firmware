@@ -55,7 +55,7 @@ void TaskManager::begin() {
      xTaskCreatePinnedToCore(
         WiFi_Manager,
         "WiFiManagerTask",
-        6144,
+        3072,
         NULL,
         3,
         &_wifiHandle,
@@ -65,7 +65,7 @@ void TaskManager::begin() {
     xTaskCreatePinnedToCore(
         Sensor_Manager,
         "SensorManagerTask",
-        6144,
+        3072,
         _sensorMgr,
         1,
         &_sensorHandle,
@@ -75,7 +75,7 @@ void TaskManager::begin() {
      xTaskCreatePinnedToCore(
         Scanner_Manager,
         "ScannerManagerTask",
-        6144,
+        3072,
         _scannerMgr,
         1,
         &_scannerHandle,
@@ -85,7 +85,7 @@ void TaskManager::begin() {
     xTaskCreatePinnedToCore(
         Relay_Manager,
         "RelayManagerTask",
-        6144,
+        3072,
         _relayMgr,
         1,
         &_relayHandle,
@@ -95,7 +95,7 @@ void TaskManager::begin() {
     xTaskCreatePinnedToCore(
         Connector_Manager,
         "ConnectorManagerTask",
-        6144,
+        3072,
         _connectorHandles,
         2,
         &_connectorHandle,

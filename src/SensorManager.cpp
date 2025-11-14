@@ -122,8 +122,8 @@ void SensorManager::loadConfig() {
 
 void SensorManager::begin() {
     Wire.begin(I2C_SDA, I2C_SCL);
-    loadConfig();
-    loadManifests();
+    loadManifests(); // Load manifests first
+    loadConfig(); // Then load config (may be empty on first boot)
 
     for (auto *p: _dht11Sensors)      p->begin();
     for (auto *p: _tempSensors)       p->begin();
@@ -382,6 +382,11 @@ void SensorManager::describeCapabilities(JsonArray& array) const {
 
 void SensorManager::loadManifests() {
     _manifests = SensorManifest::loadAll(LittleFS);
+    Serial.printf("📦 Loaded %zu sensor manifest(s)\n", _manifests.size());
+    for (const auto& m : _manifests) {
+        Serial.printf("  - %s: %s (%zu capabilities)\n", 
+                     m.driverId.c_str(), m.label.c_str(), m.capabilities.size());
+    }
 }
 
 String SensorManager::manifestLabelFor(const String& capabilityId, const String& fallback) const {

@@ -5,6 +5,7 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include <AsyncJson.h>
+#include "AuthMiddleware.h"
 
 extern SensorManager sensorManager;
 
@@ -146,7 +147,12 @@ void RelayControlEndpoint::handleRelayData() {
   // 5) POST saveConfig
   //
   _server->on("/api/relay/saveConfig", HTTP_POST,
-    [](AsyncWebServerRequest*){},
+    [](AsyncWebServerRequest* req){
+      if (!AuthMiddleware::checkApiKey(req)) {
+        req->send(401, "application/json", "{\"status\":\"error\",\"message\":\"Unauthorized\"}");
+        return;
+      }
+    },
     nullptr,
     [this](AsyncWebServerRequest* req,uint8_t* data,size_t len,size_t,size_t){
       String body((char*)data,len);

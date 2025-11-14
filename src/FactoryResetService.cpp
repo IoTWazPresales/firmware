@@ -1,10 +1,16 @@
 #include <FactoryResetService.h>
 #include <LittleFS.h>
+#include "AuthMiddleware.h"
 
 using namespace std::placeholders;
 
 FactoryResetService::FactoryResetService(AsyncWebServer* server, fs::FS* fileSystem) {
  server->on("/factory-reset", HTTP_POST, [fileSystem](AsyncWebServerRequest* request) {
+        // Admin auth required
+        if (!AuthMiddleware::checkAdminAuth(request)) {
+            request->send(401, "application/json", "{\"status\":\"error\",\"message\":\"Unauthorized\"}");
+            return;
+        }
         // Handle the factory reset logic here
        bool success = false;
        if (fileSystem == &LittleFS) {

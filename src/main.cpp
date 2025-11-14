@@ -33,6 +33,12 @@
 #include "TelemetryService.h"
 #include "DriverPackageManager.h"
 #include "DriverPackageService.h"
+#include "ManifestService.h"
+#include "AuthMiddleware.h"
+#include "SensorDriverRegistry.h"
+#include "Logger.h"
+#include "WebSocketService.h"
+#include "DeviceScanner.h"
 
 
 SupabaseConnector supabaseConnector;
@@ -73,6 +79,8 @@ OTAHandler             otaHandler;
 TelemetryService       telemetryService(&server);
 DriverPackageManager   driverPackageManager(&LittleFS);
 DriverPackageService   driverPackageService(&server, &driverPackageManager, &LittleFS);
+ManifestService        manifestService(&server, &sensorManager);
+WebSocketService       webSocketService(&server, &sensorManager);
 
 
 const char* otaPassword = "0611401627";
@@ -90,6 +98,9 @@ void setup() {
     Serial.begin(115200);
     Serial.setDebugOutput(true);
     delay(1000);
+    
+    Logger::setLevel(LogLevel::INFO);
+    Logger::info("🚀 Firmware starting...");
       // ─── TASK WATCHDOG ──────────────────────────────────────────────
     // 10-second timeout, panic=true will abort() on timeout
     esp_task_wdt_init(10, /* panic */ true);
@@ -115,6 +126,31 @@ void setup() {
         }
         if (!LittleFS.exists("/sensor_data.json")) {
             fileSystem.writeFile(LittleFS, "/sensor_data.json", "{}");
+        }
+        
+        // Ensure /manifests directory exists
+        if (!LittleFS.exists("/manifests")) {
+            Serial.println("📁 Creating /manifests directory");
+            // Create by opening a file in the directory (LittleFS creates parent dirs)
+            File test = LittleFS.open("/manifests/.keep", "w");
+            if (test) {
+                test.close();
+                LittleFS.remove("/manifests/.keep");
+                Serial.println("✅ /manifests directory created");
+            } else {
+                Serial.println("⚠️ Failed to create /manifests directory");
+            }
+        }
+        
+        // Ensure /drivers directory exists
+        if (!LittleFS.exists("/drivers")) {
+            Serial.println("📁 Creating /drivers directory");
+            File test = LittleFS.open("/drivers/.keep", "w");
+            if (test) {
+                test.close();
+                LittleFS.remove("/drivers/.keep");
+                Serial.println("✅ /drivers directory created");
+            }
         }
         
         // 1) Serve only your JS/CSS folders statically:
@@ -196,6 +232,23 @@ void setup() {
   
    
     taskManager.begin();
+    
+    // Auto-detect sensors if config is empty
+    DynamicJsonDocument cfg(512);
+    File f = LittleFS.open("/config.json", "r");
+    bool configEmpty = true;
+    if (f && f.size() > 0) {
+        deserializeJson(cfg, f);
+        f.close();
+        configEmpty = cfg.size() == 0;
+    }
+    
+    if (configEmpty) {
+        Serial.println("🔍 Config empty, attempting auto-detection...");
+        sensorManager.autoDetectSensors(&scanner);
+        sensorManager.loadConfig(); // Reload after auto-detection
+    }
+    
     Serial.println("=== HYBRID DEVICE READY ===");
     Serial.println("Device MAC: " + WiFi.macAddress());
     Serial.println("Local IP: " + WiFi.localIP().toString());
@@ -203,11 +256,13 @@ void setup() {
     Serial.println("   📡 HTTP: Device registration & fallback");
     Serial.println("   🔗 MQTT: Real-time sensor data & relay control");
     Serial.println("   🌉 Bridge: MQTT ↔ Supabase synchronization");
+    Serial.println("   ⚡ WebSocket: Real-time updates on /ws");
+    
+    webSocketService.begin();
 }
 
 void loop() {
-
-
     esp32React.loop();
+    webSocketService.loop();
     vTaskDelay(pdMS_TO_TICKS(25));
 }

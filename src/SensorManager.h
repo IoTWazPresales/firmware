@@ -21,6 +21,9 @@
 #include "NPKSensor.h"
 #include "SensorManifest.h"
 
+// Forward declaration
+class DeviceScanner;
+
 enum class SensorValueKind {
     Numeric,
     Text
@@ -48,12 +51,17 @@ public:
     void begin();
     void loop();
     void loadConfig();
+    void autoDetectSensors(DeviceScanner* scanner); // NEW: Auto-detect from manifests
     float getParameterValue(const String& name) const;
 
     void enumerateCapabilities(const std::function<void(const SensorCapability&, const SensorSample&)>& fn) const;
     void fillValuesJson(JsonObject& root) const;
     void fillNumericJson(JsonObject& root) const;
     void describeCapabilities(JsonArray& array) const;
+
+    // Manifest accessors
+    size_t getManifestCount() const { return _manifests.size(); }
+    const std::vector<SensorManifest>& getManifests() const { return _manifests; }
 
     // Legacy getters — unchanged
     SensorHumidityDHT11* getFirstDHT11() const;

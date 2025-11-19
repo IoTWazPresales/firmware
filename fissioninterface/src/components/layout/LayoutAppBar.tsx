@@ -10,8 +10,13 @@ import {
   Button,
   Menu,
   MenuItem,
+  Tooltip,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import { useThemeMode } from '../../contexts/ThemeContext';
 
 export const DRAWER_WIDTH = 280;
 
@@ -31,6 +36,7 @@ const LayoutAppBar: FC<LayoutAppBarProps> = ({
   isConnected = false,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const { themeMode, toggleTheme } = useThemeMode();
 
   const handleMenuOpen = (e: MouseEvent<HTMLElement>) => {
     setAnchorEl(e.currentTarget);
@@ -73,6 +79,13 @@ const LayoutAppBar: FC<LayoutAppBarProps> = ({
         </Typography>
 
         <Box flexGrow={1} />
+
+        {/* Theme Toggle */}
+        <Tooltip title={`Switch theme (Current: ${themeMode})`}>
+          <IconButton color="inherit" onClick={toggleTheme} sx={{ mr: 1 }}>
+            {themeMode === 'dashboard' ? <DashboardIcon /> : themeMode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
+          </IconButton>
+        </Tooltip>
 
         {/* ← now a menu */}
         <Button

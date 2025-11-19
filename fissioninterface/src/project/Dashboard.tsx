@@ -249,6 +249,17 @@ const Dashboard: FC = () => {
   const [sensorHistory, setSensorHistory] = useState<Record<string, number[]>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [telemetry, setTelemetry] = useState<TelemetryResponse | null>(null);
+  const [useWebSocket, setUseWebSocket] = useState<boolean>(true);
+  
+  // WebSocket integration
+  const { connected: wsConnected, sensorData: wsSensorData } = useSensorWebSocket(useWebSocket);
+  
+  // Merge WebSocket data with polled data (WebSocket takes priority)
+  useEffect(() => {
+    if (useWebSocket && wsConnected && wsSensorData && Object.keys(wsSensorData).length > 0) {
+      setSensorData(wsSensorData);
+    }
+  }, [wsSensorData, wsConnected, useWebSocket]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -310,9 +321,12 @@ const Dashboard: FC = () => {
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
-  }, [enqueueSnackbar]);
+    // Only poll if WebSocket is not connected or disabled
+    const interval = useWebSocket && wsConnected ? null : setInterval(fetchData, 5000);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [enqueueSnackbar, useWebSocket, wsConnected]);
 
   const notistackRef: RefObject<any> = React.createRef();
   const onClickDismiss = (key: string | number | undefined) => () => {
@@ -367,63 +381,99 @@ const Dashboard: FC = () => {
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 1 }}>
           {telemetry && (
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
+            <Paper 
+              sx={{ 
+                p: 2,
+                backgroundColor: 'background.paper',
+                borderRadius: 2,
+                boxShadow: 2,
+              }}
+            >
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
                 Device Health
               </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} useFlexGap flexWrap="wrap">
-                <Stack spacing={0.5}>
-                  <Typography variant="body2" color="text.secondary">
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} useFlexGap flexWrap="wrap">
+                <Stack spacing={0.5} sx={{ minWidth: 150 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '0.7rem' }}>
                     Uptime
                   </Typography>
-                  <Typography variant="body1">{formatUptime(telemetry.uptime_ms)}</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 500 }}>{formatUptime(telemetry.uptime_ms)}</Typography>
                 </Stack>
-                <Stack spacing={0.5}>
-                  <Typography variant="body2" color="text.secondary">
-                    Heap
+                <Stack spacing={0.5} sx={{ minWidth: 150 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '0.7rem' }}>
+                    Memory
                   </Typography>
-                  <Typography variant="body1">
-                    {formatBytes(telemetry.free_heap)} free / {formatBytes(telemetry.max_alloc_heap)} max block
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {formatBytes(telemetry.free_heap)} free
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Max: {formatBytes(telemetry.max_alloc_heap)}
                   </Typography>
                 </Stack>
-                <Stack spacing={0.5}>
-                  <Typography variant="body2" color="text.secondary">
-                    Wi-Fi
+                <Stack spacing={0.5} sx={{ minWidth: 150 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '0.7rem' }}>
+                    Wi-Fi Status
                   </Typography>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Chip
                       size="small"
                       label={telemetry.wifi_connected ? 'Connected' : 'Offline'}
                       color={telemetry.wifi_connected ? 'success' : 'default'}
+                      sx={{ fontWeight: 500 }}
                     />
                     {typeof telemetry.wifi_rssi === 'number' && (
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary">
                         {telemetry.wifi_rssi} dBm
                       </Typography>
                     )}
                   </Stack>
                 </Stack>
-                <Stack spacing={0.5}>
-                  <Typography variant="body2" color="text.secondary">
-                    Queues
+                <Stack spacing={0.5} sx={{ minWidth: 150 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '0.7rem' }}>
+                    Message Queues
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Hybrid: {telemetry.queues?.hybrid_available ?? '—'} | Cloud: {telemetry.queues?.cloud_available ?? '—'}
-                  </Typography>
+                  <Stack direction="row" spacing={1}>
+                    <Chip 
+                      size="small" 
+                      label={`Hybrid: ${telemetry.queues?.hybrid_available ?? '—'}`}
+                      variant="outlined"
+                    />
+                    <Chip 
+                      size="small" 
+                      label={`Cloud: ${telemetry.queues?.cloud_available ?? '—'}`}
+                      variant="outlined"
+                    />
+                  </Stack>
                 </Stack>
               </Stack>
             </Paper>
           )}
 
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-              gap: 2,
-            }}
-          >
-            {cardConfigs.map(renderCard)}
-          </Box>
+          {cardConfigs.length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No Sensors Configured
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Go to the Devices page to configure your sensors
+              </Typography>
+            </Paper>
+          ) : (
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: 'repeat(2, 1fr)',
+                  md: 'repeat(3, 1fr)',
+                  lg: 'repeat(4, 1fr)',
+                },
+                gap: 2,
+              }}
+            >
+              {cardConfigs.map(renderCard)}
+            </Box>
+          )}
         </Box>
       </SnackbarProvider>
     </CustomTheme>

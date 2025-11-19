@@ -1,7 +1,7 @@
 
 import { FC } from 'react';
 
-import { Box, Divider, Drawer, Toolbar, Typography, styled } from '@mui/material';
+import { Box, Divider, Drawer, Toolbar, Typography } from '@mui/material';
 
 import { PROJECT_NAME } from '../../api/env';
 import LayoutMenu from './LayoutMenu';
@@ -38,22 +38,23 @@ const LayoutDrawer: FC<LayoutDrawerProps> = ({ mobileOpen, onClose }) => {
       </Toolbar>
       <Divider />
       <LayoutMenu />
-      <Divider />
-      <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            width: '100%',
-            height: '100vh',
-            padding: 5,
-            flexWrap:'wrap',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden'
-          }}
-        >
-          <img style={{ padding: 5, height: 200 }} src="/media/FissionLogo_SkyBlue.svg" alt="Fission" />
-        </div>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          flexGrow: 1,
+          pb: 2,
+          pt: 2,
+        }}
+      >
+        <img 
+          style={{ height: 120, maxWidth: '80%', objectFit: 'contain' }} 
+          src="/media/FissionLogo_SkyBlue.svg" 
+          alt="Fission Logo" 
+        />
+      </Box>
 
     </>
   );

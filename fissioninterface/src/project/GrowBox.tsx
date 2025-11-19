@@ -17,10 +17,6 @@ const GrowBox: FC = () => {
     <>
       <RouterTabs value={routerTab}>
         <Tab value="dashboard" label="Dashboard" />
-        <Tab value="information" label="Schedules" />
-        <Tab value="rest" label="Presets" />
-        <Tab value="socket" label="History" />
-        <Tab value="mqtt" label="Settings" />
       </RouterTabs>
       <Routes>
         <Route path="dashboard" element={<Dashboard />} />

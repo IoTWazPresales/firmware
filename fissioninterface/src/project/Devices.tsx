@@ -3,11 +3,15 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 import '../App.css';
 import { SnackbarProvider, useSnackbar } from 'notistack';
+import CustomTheme from '../CustomTheme';
 import {
   Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Select, MenuItem,
-  Button, Box, Typography, Chip,
+  Button, Box, Typography, Chip, Tooltip, Dialog,
+  DialogTitle, DialogContent, DialogActions, DialogContentText,
+  TextField, InputAdornment,
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 
 import {
   fetchScannedDevices,
@@ -76,6 +80,8 @@ const Devices: FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [packages, setPackages] = useState<DriverPackageSummary[]>([]);
   const [packageBusy, setPackageBusy] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [searchFilter, setSearchFilter] = useState<string>('');
 
   // load saved assignments once
   useEffect(() => {
@@ -145,6 +151,7 @@ const Devices: FC = () => {
 
   // reset config
   const handleReset = async () => {
+    setResetConfirmOpen(false);
     setLoading(true);
     try {
       await resetSensorAssignments();
@@ -206,26 +213,60 @@ const Devices: FC = () => {
   
 
   return (
-    <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical:'bottom', horizontal:'left' }}>
-      <Box sx={{ m:2, overflowX:'auto' }}>
-        <Box sx={{ display:'flex', justifyContent:'flex-end', mb:2, gap:1 }}>
-          <Button variant="outlined" onClick={handleTrigger} disabled={loading}>
-            Scan Now
-          </Button>
-          <Button variant="contained" onClick={handleSaveAll} disabled={loading}>
-            Save All
-          </Button>
-          <Button variant="outlined" color="secondary" onClick={handleReset} disabled={loading}>
-            Reset
-          </Button>
+    <CustomTheme>
+      <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical:'bottom', horizontal:'left' }}>
+        <Box sx={{ m:2, overflowX:'auto' }}>
+        <Box sx={{ display:'flex', justifyContent:'space-between', mb:2, gap:1, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            size="small"
+            placeholder="Search ports or sensors..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ minWidth: 250, flexGrow: { xs: 1, sm: 0 } }}
+          />
+          <Box sx={{ display:'flex', gap:1, flexWrap: 'wrap' }}>
+            <Tooltip title="Scan for connected sensors on all ports">
+              <Button variant="outlined" onClick={handleTrigger} disabled={loading}>
+                Scan Now
+              </Button>
+            </Tooltip>
+            <Tooltip title="Save all sensor assignments to device">
+              <Button variant="contained" onClick={handleSaveAll} disabled={loading}>
+                Save All
+              </Button>
+            </Tooltip>
+            <Tooltip title="Reset all sensor assignments">
+              <Button variant="outlined" color="error" onClick={() => setResetConfirmOpen(true)} disabled={loading}>
+                Reset
+              </Button>
+            </Tooltip>
+          </Box>
         </Box>
 
-        {error && <Typography color="error" align="center">{error}</Typography>}
+        {error && (
+          <Paper sx={{ p: 2, mb: 2, backgroundColor: 'error.light', color: 'error.contrastText' }}>
+            <Typography color="inherit" align="center">{error}</Typography>
+          </Paper>
+        )}
 
-        <TableContainer component={Paper} sx={{ boxShadow:3 }}>
-          <Table>
+        <TableContainer 
+          component={Paper} 
+          sx={{ 
+            boxShadow: 3,
+            overflowX: 'auto',
+            maxWidth: '100%',
+          }}
+        >
+          <Table sx={{ minWidth: 650 }}>
             <TableHead>
-              <TableRow sx={{ backgroundColor:'#1976d2' }}>
+              <TableRow sx={{ backgroundColor: 'primary.main' }}>
                 <TableCell sx={{ color:'white', fontWeight:'bold' }}>Port</TableCell>
                 <TableCell sx={{ color:'white', fontWeight:'bold' }}>Pin #</TableCell>
                 <TableCell sx={{ color:'white', fontWeight:'bold' }}>Detected?</TableCell>
@@ -234,7 +275,14 @@ const Devices: FC = () => {
             </TableHead>
             <TableBody>
               {/* Analog JST ports */}
-              {ANALOG_PORTS.map(({ label, pin, key }) => {
+              {ANALOG_PORTS.filter(({ label, key }) => {
+                if (!searchFilter) return true;
+                const filter = searchFilter.toLowerCase();
+                const assignment = assignments[key] || '';
+                return label.toLowerCase().includes(filter) || 
+                       key.toLowerCase().includes(filter) ||
+                       assignment.toLowerCase().includes(filter);
+              }).map(({ label, pin, key }) => {
                 const entry = scan.analogPins.find(p => p.pin === pin);
                 const detected = entry?.detected ?? false;
                 return (
@@ -264,7 +312,14 @@ const Devices: FC = () => {
               })}
 
               {/* Digital JST ports */}
-              {DIGITAL_PORTS.map(({ label, pin, key }) => {
+              {DIGITAL_PORTS.filter(({ label, key }) => {
+                if (!searchFilter) return true;
+                const filter = searchFilter.toLowerCase();
+                const assignment = assignments[key] || '';
+                return label.toLowerCase().includes(filter) || 
+                       key.toLowerCase().includes(filter) ||
+                       assignment.toLowerCase().includes(filter);
+              }).map(({ label, pin, key }) => {
                 const entry = scan.digitalPins.find(p => p.pin === pin);
                 const detected = entry?.detected ?? false;
                 return (
@@ -300,7 +355,14 @@ const Devices: FC = () => {
                   I²C Sockets
                 </TableCell>
               </TableRow>
-              {I2C_PORTS.map(({label, key}, idx) => {
+              {I2C_PORTS.filter(({ label, key }) => {
+                if (!searchFilter) return true;
+                const filter = searchFilter.toLowerCase();
+                const assignment = assignments[key] || '';
+                return label.toLowerCase().includes(filter) || 
+                       key.toLowerCase().includes(filter) ||
+                       assignment.toLowerCase().includes(filter);
+              }).map(({label, key}, idx) => {
                 const detected = scan.i2cDevices.length > idx;
                 return (
                   <TableRow key={key}>
@@ -344,10 +406,12 @@ const Devices: FC = () => {
         <Paper sx={{ mt:4, p:2 }}>
           <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:2 }}>
             <Typography variant="h6">Driver Packages</Typography>
-            <Button component="label" variant="contained" disabled={packageBusy}>
-              Upload Package
-              <input type="file" hidden onChange={handlePackageUpload} />
-            </Button>
+            <Tooltip title="Upload a driver package JSON file to install new sensor drivers">
+              <Button component="label" variant="contained" disabled={packageBusy}>
+                Upload Package
+                <input type="file" hidden accept=".json" onChange={handlePackageUpload} />
+              </Button>
+            </Tooltip>
           </Box>
           {packages.length === 0 ? (
             <Typography color="text.secondary">No packages installed yet.</Typography>
@@ -370,8 +434,28 @@ const Devices: FC = () => {
             </Table>
           )}
         </Paper>
+
+        {/* Reset Confirmation Dialog */}
+        <Dialog
+          open={resetConfirmOpen}
+          onClose={() => setResetConfirmOpen(false)}
+        >
+          <DialogTitle>Confirm Reset</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              Are you sure you want to reset all sensor assignments? This action cannot be undone.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setResetConfirmOpen(false)}>Cancel</Button>
+            <Button onClick={handleReset} color="error" variant="contained">
+              Reset
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
-    </SnackbarProvider>
+      </SnackbarProvider>
+    </CustomTheme>
   );
 };
 

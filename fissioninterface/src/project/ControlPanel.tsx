@@ -16,8 +16,23 @@ import {
   Select,
   MenuItem,
   Slider,
+  Tooltip,
+  Menu,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
+  TextField,
+  IconButton,
 } from '@mui/material';
+import SaveIcon from '@mui/icons-material/Save';
+import FolderIcon from '@mui/icons-material/Folder';
+import DeleteIcon from '@mui/icons-material/Delete';
+import DownloadIcon from '@mui/icons-material/Download';
+import UploadIcon from '@mui/icons-material/Upload';
 import CustomTheme from '../CustomTheme';
+import { PresetManager, Preset } from '../utils/presetManager';
 import {
   fetchRelayConfig,
   getDeviceStates,
@@ -86,12 +101,22 @@ const ControlPanel: FC = () => {
       ])
     ) as Record<string, RelayAssignment>
   );
+  const [presetMenuAnchor, setPresetMenuAnchor] = useState<null | HTMLElement>(null);
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [presetDialogOpen, setPresetDialogOpen] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  const [presetDescription, setPresetDescription] = useState('');
 
   // Load available sensor parameters
   useEffect(() => {
     fetchSensorParameters()
       .then(setParameters)
       .catch((e) => console.error('fetchSensorParameters error', e));
+  }, []);
+
+  // Load presets
+  useEffect(() => {
+    setPresets(PresetManager.loadAllPresets());
   }, []);
 
   // Load merged relay+threshold config
@@ -159,11 +184,100 @@ const ControlPanel: FC = () => {
     }));
   };
   const setThresh = (pin: string, min: number, max: number) => {
-    setAssignments((a) => ({ ...a, [pin]: { ...a[pin], min, max } }));
+    // Validate: min should be <= max
+    const validMin = Math.min(min, max);
+    const validMax = Math.max(min, max);
+    setAssignments((a) => ({ ...a, [pin]: { ...a[pin], min: validMin, max: validMax } }));
+  };
+
+  // Preset management
+  const handleSavePreset = () => {
+    const thresholds: Record<string, { min: number; max: number }> = {};
+    PORTS.forEach((pin) => {
+      const a = assignments[pin];
+      if (a.deviceType !== 'none' && a.parameter) {
+        thresholds[`${pin}_${a.parameter}`] = { min: a.min, max: a.max };
+      }
+    });
+
+    PresetManager.savePreset({
+      name: presetName || `Preset ${presets.length + 1}`,
+      description: presetDescription,
+      thresholds,
+    });
+    setPresets(PresetManager.loadAllPresets());
+    setPresetDialogOpen(false);
+    setPresetName('');
+    setPresetDescription('');
+    enqueueSnackbar('Preset saved!', { variant: 'success' });
+  };
+
+  const handleLoadPreset = (preset: Preset) => {
+    setPresetMenuAnchor(null);
+    const updated = { ...assignments };
+    PORTS.forEach((pin) => {
+      const a = assignments[pin];
+      if (a.parameter) {
+        const key = `${pin}_${a.parameter}`;
+        const threshold = preset.thresholds[key];
+        if (threshold) {
+          updated[pin] = { ...a, min: threshold.min, max: threshold.max };
+        }
+      }
+    });
+    setAssignments(updated);
+    enqueueSnackbar(`Preset "${preset.name}" loaded!`, { variant: 'success' });
+  };
+
+  const handleDeletePreset = (id: string) => {
+    PresetManager.deletePreset(id);
+    setPresets(PresetManager.loadAllPresets());
+    enqueueSnackbar('Preset deleted', { variant: 'info' });
+  };
+
+  const handleExportPresets = () => {
+    const json = PresetManager.exportPresets();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sensor-presets-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    enqueueSnackbar('Presets exported!', { variant: 'success' });
+  };
+
+  const handleImportPresets = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const result = PresetManager.importPresets(text);
+      if (result.success) {
+        setPresets(PresetManager.loadAllPresets());
+        enqueueSnackbar(`Imported ${result.count} preset(s)!`, { variant: 'success' });
+      } else {
+        enqueueSnackbar(`Import failed: ${result.error}`, { variant: 'error' });
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
   };
 
   // Save All
  const onSaveAll = async () => {
+  // Validate all assignments before saving
+  const invalidAssignments = PORTS.filter((pinLabel) => {
+    const a = assignments[pinLabel];
+    return a.deviceType !== 'none' && a.parameter && a.min >= a.max;
+  });
+
+  if (invalidAssignments.length > 0) {
+    enqueueSnackbar('Please fix invalid thresholds (Min must be less than Max)', { variant: 'error' });
+    return;
+  }
+
   setLoading(true);
   try {
     // Build an array of properly typed relay entries:
@@ -195,19 +309,75 @@ const ControlPanel: FC = () => {
     <CustomTheme>
       <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
         <Box sx={{ m: 2, overflowX: 'auto' }}>
-          <Button
-            variant="contained"
-            onClick={onSaveAll}
-            disabled={loading}
-            sx={{ mb: 2 }}
-          >
-            Save All Settings
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+            <Tooltip title="Save all relay configurations and thresholds to device">
+              <Button
+                variant="contained"
+                onClick={onSaveAll}
+                disabled={loading}
+                startIcon={<SaveIcon />}
+              >
+                Save All Settings
+              </Button>
+            </Tooltip>
+            <Button
+              variant="outlined"
+              onClick={(e) => setPresetMenuAnchor(e.currentTarget)}
+              startIcon={<FolderIcon />}
+            >
+              Presets
+            </Button>
+            <Menu
+              anchorEl={presetMenuAnchor}
+              open={Boolean(presetMenuAnchor)}
+              onClose={() => setPresetMenuAnchor(null)}
+            >
+              <MenuItem onClick={() => { setPresetDialogOpen(true); setPresetMenuAnchor(null); }}>
+                <SaveIcon sx={{ mr: 1 }} /> Save Current as Preset
+              </MenuItem>
+              {presets.length > 0 && (
+                <>
+                  <MenuItem disabled>Load Preset:</MenuItem>
+                  {presets.map((preset) => (
+                    <MenuItem key={preset.id} onClick={() => handleLoadPreset(preset)}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                        <Box>
+                          <Typography variant="body2">{preset.name}</Typography>
+                          {preset.description && (
+                            <Typography variant="caption" color="text.secondary">
+                              {preset.description}
+                            </Typography>
+                          )}
+                        </Box>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeletePreset(preset.id);
+                          }}
+                          sx={{ ml: 1 }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </>
+              )}
+              <MenuItem onClick={handleExportPresets}>
+                <DownloadIcon sx={{ mr: 1 }} /> Export Presets
+              </MenuItem>
+              <MenuItem component="label">
+                <UploadIcon sx={{ mr: 1 }} /> Import Presets
+                <input type="file" hidden accept=".json" onChange={handleImportPresets} />
+              </MenuItem>
+            </Menu>
+          </Box>
 
           <TableContainer component={Paper} sx={{ boxShadow: 3 }}>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#1976d2' }}>
+                <TableRow sx={{ backgroundColor: 'primary.main' }}>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Pin</TableCell>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Device Type</TableCell>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Status</TableCell>
@@ -270,17 +440,21 @@ const ControlPanel: FC = () => {
                               }
                               valueLabelDisplay="auto"
                               min={0}
-                              max={200}
-                              step={a.parameter.toUpperCase() === 'CO2' ? 10 : 0.1}
+                              max={a.parameter.toUpperCase() === 'CO2' ? 2000 : a.parameter.toUpperCase() === 'PH' ? 14 : 200}
+                              step={a.parameter.toUpperCase() === 'CO2' ? 10 : a.parameter.toUpperCase() === 'PH' ? 0.1 : 1}
+                              sx={{ mb: 1 }}
                             />
-                            <Box display="flex" justifyContent="space-between">
-                              <Typography variant="body2">
-                                Min: {a.min}
-                                {a.unit}
+                            <Box display="flex" justifyContent="space-between" alignItems="center">
+                              <Typography variant="caption" color={a.min >= a.max ? 'error' : 'text.secondary'}>
+                                Min: {a.min.toFixed(a.parameter.toUpperCase() === 'PH' ? 1 : 0)}{a.unit}
                               </Typography>
-                              <Typography variant="body2">
-                                Max: {a.max}
-                                {a.unit}
+                              {a.min >= a.max && (
+                                <Typography variant="caption" color="error" sx={{ fontStyle: 'italic' }}>
+                                  Min must be &lt; Max
+                                </Typography>
+                              )}
+                              <Typography variant="caption" color="text.secondary">
+                                Max: {a.max.toFixed(a.parameter.toUpperCase() === 'PH' ? 1 : 0)}{a.unit}
                               </Typography>
                             </Box>
                           </>
@@ -294,6 +468,37 @@ const ControlPanel: FC = () => {
               </TableBody>
             </Table>
           </TableContainer>
+
+          {/* Save Preset Dialog */}
+          <Dialog open={presetDialogOpen} onClose={() => setPresetDialogOpen(false)}>
+            <DialogTitle>Save Preset</DialogTitle>
+            <DialogContent>
+              <TextField
+                autoFocus
+                margin="dense"
+                label="Preset Name"
+                fullWidth
+                value={presetName}
+                onChange={(e) => setPresetName(e.target.value)}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                margin="dense"
+                label="Description (optional)"
+                fullWidth
+                multiline
+                rows={3}
+                value={presetDescription}
+                onChange={(e) => setPresetDescription(e.target.value)}
+              />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setPresetDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSavePreset} variant="contained" disabled={!presetName.trim()}>
+                Save
+              </Button>
+            </DialogActions>
+          </Dialog>
         </Box>
       </SnackbarProvider>
     </CustomTheme>

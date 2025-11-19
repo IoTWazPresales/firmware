@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Typography, Box, Switch } from '@mui/material';
+import { Card, Typography, Box, Switch, Skeleton, Badge } from '@mui/material';
+import WarningIcon from '@mui/icons-material/Warning';
 import ChartContainer from './ChartContainer';
 
 interface SensorCardProps {
@@ -43,21 +44,40 @@ const SensorCard: React.FC<SensorCardProps> = ({
   const showThresholds = minThreshold !== undefined && maxThreshold !== undefined;
   const resolvedHealthColor =
     healthColor && progressValue !== undefined ? healthColor(progressValue) : 'primary';
+  
+  // Check if value is outside thresholds (alert condition)
+  const isAlert = showThresholds && value !== null && typeof value === 'number' && (
+    (minThreshold !== null && value < minThreshold) ||
+    (maxThreshold !== null && value > maxThreshold)
+  );
 
   return (
-    <Card
-      sx={{
-        width: 250, // Fixed width
-    height: 250, // Fixed height to match width, making it square
-    padding: 2,
-    borderRadius: 2,
-    boxShadow: 2,
-    display: 'flex',
-    flexDirection: 'column',
-    
-    alignItems: 'center',
-      }}
+    <Badge
+      badgeContent={isAlert ? <WarningIcon sx={{ fontSize: 16, color: 'error.main' }} /> : 0}
+      color="error"
+      invisible={!isAlert}
+      sx={{ width: '100%', maxWidth: 350 }}
     >
+      <Card
+        sx={{
+          width: '100%',
+          minHeight: 280,
+          maxWidth: 350,
+          padding: 2,
+          borderRadius: 2,
+          boxShadow: isAlert ? 6 : 2,
+          border: isAlert ? '2px solid' : 'none',
+          borderColor: isAlert ? 'error.main' : 'transparent',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: isAlert ? 8 : 4,
+          },
+        }}
+      >
       <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', mb: 1 }}>
         <Typography variant="subtitle2">{title}</Typography>
         {deviceStatus !== undefined && (
@@ -65,19 +85,22 @@ const SensorCard: React.FC<SensorCardProps> = ({
         )}
       </Box>
 
-      <Box sx={{ textAlign: 'center', minHeight: 50 }}>
+      <Box sx={{ textAlign: 'center', minHeight: 50, width: '100%' }}>
         {loading ? (
-          <Typography variant="body1" color="text.secondary">
-            {loadingText}
-          </Typography>
+          <Box sx={{ width: '100%' }}>
+            <Skeleton variant="text" width="60%" sx={{ mx: 'auto', height: 40 }} />
+            <Skeleton variant="text" width="40%" sx={{ mx: 'auto' }} />
+          </Box>
         ) : value !== null ? (
-          <Typography variant="h4" color="primary">
+          <Typography variant="h4" color="primary" sx={{ fontWeight: 600 }}>
             {`${Number(value).toFixed(2)} ${unit}`}
           </Typography>
         ) : (
-          <Typography variant="body1" color="text.secondary">
-            No Data
-          </Typography>
+          <Box sx={{ py: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+              No Data Available
+            </Typography>
+          </Box>
         )}
       </Box>
 
@@ -92,15 +115,20 @@ const SensorCard: React.FC<SensorCardProps> = ({
         </Box>
       )}
 
-      <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center',width: '100%', justifyContent: 'center'}}>
-        <ChartContainer
-          type={chartType}
-          data={chartData}
-          progressValue={progressValue}
-          healthColor={resolvedHealthColor}
-        />
+      <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'center', minHeight: 80 }}>
+        {loading ? (
+          <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+        ) : (
+          <ChartContainer
+            type={chartType}
+            data={chartData}
+            progressValue={progressValue}
+            healthColor={resolvedHealthColor}
+          />
+        )}
       </Box>
-    </Card>
+      </Card>
+    </Badge>
   );
 };
 

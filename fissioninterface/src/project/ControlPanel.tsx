@@ -608,7 +608,7 @@ const ControlPanel: FC = () => {
             open={relayWizardOpen}
             onClose={() => setRelayWizardOpen(false)}
             onComplete={handleRelayWizardComplete}
-            availablePins={PORTS}
+            availablePins={[...PORTS]}
             parameters={parameters}
           />
         </Box>

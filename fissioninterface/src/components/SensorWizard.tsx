@@ -34,7 +34,7 @@ const steps = ['Select Interface', 'Choose Port', 'Select Sensor', 'Confirm'];
 
 const SensorWizard: FC<SensorWizardProps> = ({ open, onClose, onComplete, scanResults }) => {
   const [activeStep, setActiveStep] = useState(0);
-  const [interfaceType, setInterfaceType] = useState<'analog' | 'digital' | 'i2c' | 'wireless'>('');
+  const [interfaceType, setInterfaceType] = useState<'analog' | 'digital' | 'i2c' | 'wireless' | ''>('');
   const [selectedPort, setSelectedPort] = useState<string>('');
   const [selectedSensor, setSelectedSensor] = useState<string>('');
   const [sensorName, setSensorName] = useState<string>('');

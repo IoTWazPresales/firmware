@@ -18,7 +18,14 @@ const LayoutDrawer: FC<LayoutDrawerProps> = ({ mobileOpen, onClose }) => {
       <Toolbar disableGutters>
         <Box display="flex" alignItems="center" px={2}>
           {/* <LayoutDrawerLogo src="/app/icon.png" alt={PROJECT_NAME} /> */}
-          <Typography variant="h6" color="textPrimary">
+          <Typography 
+            variant="h6" 
+            sx={{
+              color: '#00D4FF',
+              fontWeight: 700,
+              textShadow: '0 0 10px rgba(0, 212, 255, 0.5)',
+            }}
+          >
             Command Centre
           </Typography>
         </Box>

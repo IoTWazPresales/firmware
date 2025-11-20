@@ -60,7 +60,10 @@ const LayoutAppBar: FC<LayoutAppBarProps> = ({
       sx={{
         width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
         ml:    { md: `${DRAWER_WIDTH}px` },
-        boxShadow: 'none',
+        boxShadow: '0 2px 10px rgba(0, 212, 255, 0.2)',
+        borderBottom: '1px solid rgba(0, 212, 255, 0.3)',
+        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+        backdropFilter: 'blur(10px)',
       }}
     >
       <Toolbar>
@@ -69,12 +72,29 @@ const LayoutAppBar: FC<LayoutAppBarProps> = ({
           aria-label="open drawer"
           edge="start"
           onClick={onToggleDrawer}
-          sx={{ mr: 2, display: { md: 'none' } }}
+          sx={{ 
+            mr: 2, 
+            display: { md: 'none' },
+            '&:hover': {
+              color: '#00D4FF',
+              boxShadow: '0 0 10px rgba(0, 212, 255, 0.4)',
+            },
+            transition: 'all 0.3s ease',
+          }}
         >
           <MenuIcon />
         </IconButton>
 
-        <Typography variant="h6" noWrap component="div">
+        <Typography 
+          variant="h6" 
+          noWrap 
+          component="div"
+          sx={{
+            color: '#00D4FF',
+            fontWeight: 700,
+            textShadow: '0 0 10px rgba(0, 212, 255, 0.5)',
+          }}
+        >
           {title}
         </Typography>
 
@@ -82,7 +102,19 @@ const LayoutAppBar: FC<LayoutAppBarProps> = ({
 
         {/* Theme Toggle */}
         <Tooltip title={`Switch theme (Current: ${themeMode})`}>
-          <IconButton color="inherit" onClick={toggleTheme} sx={{ mr: 1 }}>
+          <IconButton 
+            color="inherit" 
+            onClick={toggleTheme} 
+            sx={{ 
+              mr: 1,
+              '&:hover': {
+                color: '#00D4FF',
+                boxShadow: '0 0 15px rgba(0, 212, 255, 0.5)',
+                backgroundColor: 'rgba(0, 212, 255, 0.1)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+          >
             {themeMode === 'dashboard' ? <DashboardIcon /> : themeMode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
           </IconButton>
         </Tooltip>
@@ -91,7 +123,19 @@ const LayoutAppBar: FC<LayoutAppBarProps> = ({
         <Button
           color="inherit"
           onClick={handleMenuOpen}
-          sx={{ textTransform: 'none' }}
+          sx={{ 
+            textTransform: 'none',
+            border: '1px solid rgba(0, 212, 255, 0.3)',
+            borderRadius: '8px',
+            px: 2,
+            '&:hover': {
+              borderColor: '#00D4FF',
+              backgroundColor: 'rgba(0, 212, 255, 0.1)',
+              boxShadow: '0 0 15px rgba(0, 212, 255, 0.3)',
+              color: '#00D4FF',
+            },
+            transition: 'all 0.3s ease',
+          }}
         >
           {isConnected ? 'Connected' : 'Connect to App'}
         </Button>

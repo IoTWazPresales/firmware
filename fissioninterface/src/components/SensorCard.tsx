@@ -66,17 +66,22 @@ const SensorCard: React.FC<SensorCardProps> = ({
           maxWidth: 350,
           padding: 2,
           borderRadius: 2,
-          boxShadow: isAlert ? 6 : 2,
-          border: isAlert ? '2px solid' : 'none',
-          borderColor: isAlert ? 'error.main' : 'transparent',
+          boxShadow: isAlert 
+            ? '0 0 15px rgba(239, 68, 68, 0.4), 0 4px 6px rgba(0, 0, 0, 0.3)' 
+            : '0 0 10px rgba(0, 212, 255, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2)',
+          border: isAlert ? '2px solid' : '1px solid',
+          borderColor: isAlert ? 'error.main' : 'rgba(0, 212, 255, 0.5)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
+          transition: 'transform 0.2s, box-shadow 0.3s, border-color 0.3s',
           cursor: onClick ? 'pointer' : 'default',
           '&:hover': {
             transform: 'translateY(-4px)',
-            boxShadow: isAlert ? 8 : 4,
+            boxShadow: isAlert 
+              ? '0 0 25px rgba(239, 68, 68, 0.6), 0 6px 8px rgba(0, 0, 0, 0.4)' 
+              : '0 0 20px rgba(0, 212, 255, 0.5), 0 4px 8px rgba(0, 0, 0, 0.3)',
+            borderColor: isAlert ? 'error.main' : 'rgba(0, 255, 255, 0.8)',
           },
         }}
         onClick={onClick}
@@ -99,7 +104,14 @@ const SensorCard: React.FC<SensorCardProps> = ({
             <Skeleton variant="text" width="40%" sx={{ mx: 'auto' }} />
           </Box>
         ) : value !== null ? (
-          <Typography variant="h4" color="primary" sx={{ fontWeight: 600 }}>
+          <Typography 
+            variant="h4" 
+            color="primary" 
+            sx={{ 
+              fontWeight: 600,
+              textShadow: '0 0 10px rgba(0, 212, 255, 0.5)',
+            }}
+          >
             {`${Number(value).toFixed(2)} ${unit}`}
           </Typography>
         ) : (

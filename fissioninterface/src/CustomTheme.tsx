@@ -219,6 +219,24 @@ const dashboardTheme: ThemeOptions = {
         },
       },
     },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "rgba(15, 23, 42, 0.95)",
+          backdropFilter: "blur(10px)",
+          borderBottom: "1px solid rgba(0, 212, 255, 0.3)",
+          boxShadow: "0 2px 10px rgba(0, 212, 255, 0.2)",
+        },
+      },
+    },
+    MuiDrawer: {
+      styleOverrides: {
+        paper: {
+          borderRight: "1px solid rgba(0, 212, 255, 0.2)",
+          boxShadow: "2px 0 10px rgba(0, 212, 255, 0.1)",
+        },
+      },
+    },
   },
 };
 

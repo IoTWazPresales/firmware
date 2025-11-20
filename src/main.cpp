@@ -43,6 +43,7 @@
 #include "RateLimitMiddleware.h"
 #include "ErrorRecovery.h"
 #include "NetworkResilience.h"
+#include "SensorSubmissionService.h"
 
 
 SupabaseConnector supabaseConnector;
@@ -85,6 +86,7 @@ DriverPackageManager   driverPackageManager(&LittleFS);
 DriverPackageService   driverPackageService(&server, &driverPackageManager, &LittleFS);
 ManifestService        manifestService(&server, &sensorManager);
 WebSocketService       webSocketService(&server, &sensorManager);
+SensorSubmissionService sensorSubmissionService(&server);
 
 // Rate limiting (60 requests per minute per IP)
 RateLimiter            apiRateLimiter(60, 60000);
@@ -165,6 +167,17 @@ void setup() {
                 test.close();
                 LittleFS.remove("/drivers/.keep");
                 Serial.println("✅ /drivers directory created");
+            }
+        }
+        
+        // Ensure /submissions directory exists
+        if (!LittleFS.exists("/submissions")) {
+            Serial.println("📁 Creating /submissions directory");
+            File test = LittleFS.open("/submissions/.keep", "w");
+            if (test) {
+                test.close();
+                LittleFS.remove("/submissions/.keep");
+                Serial.println("✅ /submissions directory created");
             }
         }
         
@@ -278,11 +291,14 @@ void setup() {
     Serial.println("   ⚡ WebSocket: Real-time updates on /ws");
     
     webSocketService.begin();
+    sensorSubmissionService.begin();
+    WirelessSensorManager::begin();
 }
 
 void loop() {
     esp32React.loop();
     webSocketService.loop();
+    WirelessSensorManager::loop();
     
     // Periodic state save (every 5 minutes)
     static unsigned long lastStateSave = 0;

@@ -44,6 +44,7 @@
 #include "ErrorRecovery.h"
 #include "NetworkResilience.h"
 #include "SensorSubmissionService.h"
+#include "WirelessSensorManager.h"
 
 
 SupabaseConnector supabaseConnector;

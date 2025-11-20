@@ -30,7 +30,9 @@ import FolderIcon from '@mui/icons-material/Folder';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
 import UploadIcon from '@mui/icons-material/Upload';
+import AddIcon from '@mui/icons-material/Add';
 import CustomTheme from '../CustomTheme';
+import RelayWizard from '../components/RelayWizard';
 import { PresetManager, Preset } from '../utils/presetManager';
 import {
   fetchRelayConfig,
@@ -105,6 +107,7 @@ const ControlPanel: FC = () => {
   const [presetDialogOpen, setPresetDialogOpen] = useState(false);
   const [presetName, setPresetName] = useState('');
   const [presetDescription, setPresetDescription] = useState('');
+  const [relayWizardOpen, setRelayWizardOpen] = useState(false);
 
   // Load available sensor parameters
   useEffect(() => {
@@ -307,6 +310,26 @@ const ControlPanel: FC = () => {
     event.target.value = '';
   };
 
+  const handleRelayWizardComplete = (config: {
+    pin: string;
+    deviceType: string;
+    parameter: string;
+    min: number;
+    max: number;
+  }) => {
+    setAssignments(prev => ({
+      ...prev,
+      [config.pin]: {
+        deviceType: config.deviceType as DeviceType,
+        parameter: config.parameter,
+        unit: parameters.find(p => p.id === config.parameter)?.unit || DEFAULT_UNIT[config.parameter] || '',
+        min: config.min,
+        max: config.max,
+      },
+    }));
+    enqueueSnackbar('Relay control added successfully!', { variant: 'success' });
+  };
+
   // Save All
  const onSaveAll = async () => {
   // Validate all assignments before saving
@@ -352,6 +375,16 @@ const ControlPanel: FC = () => {
       <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
         <Box sx={{ m: 2, overflowX: 'auto' }}>
           <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+            <Tooltip title="Add a new relay control using the setup wizard">
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => setRelayWizardOpen(true)}
+                startIcon={<AddIcon />}
+              >
+                Add Relay Control
+              </Button>
+            </Tooltip>
             <Tooltip title="Save all relay configurations and thresholds to device">
               <Button
                 variant="contained"
@@ -431,11 +464,11 @@ const ControlPanel: FC = () => {
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Pin</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Device Type</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Status</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Parameter</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Thresholds</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>GPIO Pin</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Controlled Device</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Current State</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Control Parameter</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Activation Range</TableCell>
                 </TableRow>
               </TableHead>
 
@@ -445,14 +478,23 @@ const ControlPanel: FC = () => {
                   const stateKey = deviceStateMap[a.deviceType];
                   const isOn = stateKey && controllerData ? controllerData[stateKey] : false;
                   return (
-                    <TableRow key={pin}>
-                      <TableCell>{pin}</TableCell>
+                    <TableRow 
+                      key={pin}
+                      sx={{ 
+                        '&:hover': { backgroundColor: 'action.hover' },
+                        transition: 'background-color 0.2s',
+                      }}
+                    >
+                      <TableCell sx={{ fontFamily: 'monospace', fontWeight: 500, color: 'text.secondary' }}>
+                        GPIO {pin}
+                      </TableCell>
                       <TableCell>
                         <Select
                           value={a.deviceType}
                           onChange={(e) => setDevType(pin, e.target.value as DeviceType)}
                           disabled={loading}
                           fullWidth
+                          size="small"
                         >
                           {DEVICE_TYPES.map((t) => (
                             <MenuItem key={t.value} value={t.value}>
@@ -462,7 +504,12 @@ const ControlPanel: FC = () => {
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Chip label={isOn ? 'On' : 'Off'} color={isOn ? 'success' : 'error'} />
+                        <Chip 
+                          label={isOn ? 'Active' : 'Inactive'} 
+                          color={isOn ? 'success' : 'default'}
+                          size="small"
+                          variant={isOn ? 'filled' : 'outlined'}
+                        />
                       </TableCell>
                       <TableCell>
                         <Select
@@ -471,6 +518,7 @@ const ControlPanel: FC = () => {
                           disabled={loading}
                           displayEmpty
                           fullWidth
+                          size="small"
                         >
                           <MenuItem value="">
                             <em>None</em>
@@ -485,7 +533,7 @@ const ControlPanel: FC = () => {
                       </TableCell>
                       <TableCell>
                         {a.parameter ? (
-                          <>
+                          <Box sx={{ px: 1 }}>
                             <Slider
                               value={[a.min, a.max]}
                               onChange={(_, v) =>
@@ -496,23 +544,26 @@ const ControlPanel: FC = () => {
                               max={a.parameter.toUpperCase() === 'CO2' ? 2000 : a.parameter.toUpperCase() === 'PH' ? 14 : 200}
                               step={a.parameter.toUpperCase() === 'CO2' ? 10 : a.parameter.toUpperCase() === 'PH' ? 0.1 : 1}
                               sx={{ mb: 1 }}
+                              size="small"
                             />
-                            <Box display="flex" justifyContent="space-between" alignItems="center">
+                            <Box display="flex" justifyContent="space-between" alignItems="center" gap={1}>
                               <Typography variant="caption" color={a.min >= a.max ? 'error' : 'text.secondary'}>
-                                Min: {a.min.toFixed(a.parameter.toUpperCase() === 'PH' ? 1 : 0)}{a.unit}
+                                Min: {a.min.toFixed(a.parameter.toUpperCase() === 'PH' ? 1 : 0)} {a.unit}
                               </Typography>
                               {a.min >= a.max && (
-                                <Typography variant="caption" color="error" sx={{ fontStyle: 'italic' }}>
-                                  Min must be &lt; Max
+                                <Typography variant="caption" color="error" sx={{ fontStyle: 'italic', fontSize: '0.7rem' }}>
+                                  Invalid range
                                 </Typography>
                               )}
                               <Typography variant="caption" color="text.secondary">
-                                Max: {a.max.toFixed(a.parameter.toUpperCase() === 'PH' ? 1 : 0)}{a.unit}
+                                Max: {a.max.toFixed(a.parameter.toUpperCase() === 'PH' ? 1 : 0)} {a.unit}
                               </Typography>
                             </Box>
-                          </>
+                          </Box>
                         ) : (
-                          <Typography variant="body2">N/A</Typography>
+                          <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic' }}>
+                            Not configured
+                          </Typography>
                         )}
                       </TableCell>
                     </TableRow>
@@ -552,6 +603,14 @@ const ControlPanel: FC = () => {
               </Button>
             </DialogActions>
           </Dialog>
+
+          <RelayWizard
+            open={relayWizardOpen}
+            onClose={() => setRelayWizardOpen(false)}
+            onComplete={handleRelayWizardComplete}
+            availablePins={PORTS}
+            parameters={parameters}
+          />
         </Box>
       </SnackbarProvider>
     </CustomTheme>

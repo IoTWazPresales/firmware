@@ -278,11 +278,11 @@ const Devices: FC = () => {
         >
           <Table sx={{ minWidth: 650 }}>
             <TableHead>
-              <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                <TableCell sx={{ color:'white', fontWeight:'bold' }}>Connection Port</TableCell>
-                <TableCell sx={{ color:'white', fontWeight:'bold' }}>GPIO Pin</TableCell>
-                <TableCell sx={{ color:'white', fontWeight:'bold' }}>Device Detected</TableCell>
-                <TableCell sx={{ color:'white', fontWeight:'bold' }}>Sensor Type</TableCell>
+              <TableRow>
+                <TableCell>Connection Port</TableCell>
+                <TableCell>GPIO Pin</TableCell>
+                <TableCell>Device Detected</TableCell>
+                <TableCell>Sensor Type</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

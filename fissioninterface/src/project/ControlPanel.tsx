@@ -463,12 +463,12 @@ const ControlPanel: FC = () => {
           <TableContainer component={Paper} sx={{ boxShadow: 3 }}>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>GPIO Pin</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Controlled Device</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Current State</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Control Parameter</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Activation Range</TableCell>
+                <TableRow>
+                  <TableCell>GPIO Pin</TableCell>
+                  <TableCell>Controlled Device</TableCell>
+                  <TableCell>Current State</TableCell>
+                  <TableCell>Control Parameter</TableCell>
+                  <TableCell>Activation Range</TableCell>
                 </TableRow>
               </TableHead>
 

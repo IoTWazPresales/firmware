@@ -22,7 +22,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  DialogContentText,
   TextField,
   IconButton,
 } from '@mui/material';
@@ -265,6 +264,49 @@ const ControlPanel: FC = () => {
     event.target.value = '';
   };
 
+  const handleExportConfig = () => {
+    const snapshot = {
+      exportedAt: new Date().toISOString(),
+      assignments,
+    };
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `relay-config-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    enqueueSnackbar('Configuration exported!', { variant: 'success' });
+  };
+
+  const handleImportConfig = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const parsed = JSON.parse(text);
+        if (!parsed || typeof parsed !== 'object' || typeof parsed.assignments !== 'object') {
+          throw new Error('Invalid configuration file');
+        }
+        const incoming = parsed.assignments as Record<string, RelayAssignment>;
+        const normalized: Record<string, RelayAssignment> = { ...assignments };
+        PORTS.forEach((pin) => {
+          if (incoming[pin]) {
+            normalized[pin] = { ...incoming[pin] };
+          }
+        });
+        setAssignments(normalized);
+        enqueueSnackbar('Configuration imported. Click "Save All" to push to the device.', { variant: 'info' });
+      } catch (err: any) {
+        enqueueSnackbar(`Import failed: ${err?.message || 'Unknown error'}`, { variant: 'error' });
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  };
+
   // Save All
  const onSaveAll = async () => {
   // Validate all assignments before saving
@@ -372,6 +414,17 @@ const ControlPanel: FC = () => {
                 <input type="file" hidden accept=".json" onChange={handleImportPresets} />
               </MenuItem>
             </Menu>
+            <Tooltip title="Download the current relay configuration as JSON">
+              <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportConfig}>
+                Export Config
+              </Button>
+            </Tooltip>
+            <Tooltip title="Load relay configuration from JSON">
+              <Button variant="outlined" component="label" startIcon={<UploadIcon />}>
+                Import Config
+                <input type="file" hidden accept=".json" onChange={handleImportConfig} />
+              </Button>
+            </Tooltip>
           </Box>
 
           <TableContainer component={Paper} sx={{ boxShadow: 3 }}>

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, FC, ReactNode } from 'react';
 
-type ThemeMode = 'light' | 'dark' | 'dashboard';
+export type ThemeMode = 'light' | 'dark' | 'dashboard';
 
 interface ThemeContextType {
   themeMode: ThemeMode;
@@ -18,18 +18,38 @@ export const useThemeMode = () => {
   return context;
 };
 
+export const useOptionalThemeMode = () => useContext(ThemeContext);
+
 interface ThemeProviderProps {
   children: ReactNode;
 }
 
+const THEME_STORAGE_KEY = 'themeMode';
+
+const readStoredTheme = (): ThemeMode => {
+  if (typeof window === 'undefined') {
+    return 'dashboard';
+  }
+  try {
+    const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === 'light' || saved === 'dark' || saved === 'dashboard') {
+      return saved;
+    }
+  } catch {
+    // ignore - fall back to default
+  }
+  return 'dashboard';
+};
+
 export const ThemeProvider: FC<ThemeProviderProps> = ({ children }) => {
-  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
-    const saved = localStorage.getItem('themeMode');
-    return (saved as ThemeMode) || 'dashboard';
-  });
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => readStoredTheme());
 
   useEffect(() => {
-    localStorage.setItem('themeMode', themeMode);
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+    } catch {
+      // ignore write failures (e.g., Safari private mode)
+    }
   }, [themeMode]);
 
   const setThemeMode = (mode: ThemeMode) => {

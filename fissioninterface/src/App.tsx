@@ -2,7 +2,6 @@ import React, { FC, useState, useEffect, RefObject } from 'react';
 import { SnackbarProvider } from 'notistack';
 import { IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { FeaturesLoader } from './contexts/features';
 import { ThemeProvider } from './contexts/ThemeContext';
 import CustomTheme from './CustomTheme';
 import AppRouting from './AppRouting';

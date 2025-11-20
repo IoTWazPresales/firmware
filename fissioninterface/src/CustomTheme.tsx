@@ -1,8 +1,8 @@
-import { FC, ReactNode } from "react";
+import { FC, ReactNode, useMemo } from "react";
 import { CssBaseline, ThemeOptions } from "@mui/material";
 import { createTheme, responsiveFontSizes, ThemeProvider as MuiThemeProvider } from "@mui/material/styles";
-import { indigo, orange, red, green, grey, blue, cyan, purple } from "@mui/material/colors";
-import { useThemeMode } from "./contexts/ThemeContext";
+import { indigo, orange, red, green, grey, cyan } from "@mui/material/colors";
+import { useOptionalThemeMode, ThemeMode } from "./contexts/ThemeContext";
 
 // Light Theme
 const lightTheme: ThemeOptions = {
@@ -175,21 +175,19 @@ const themes = {
   dashboard: createTheme(dashboardTheme),
 };
 
+interface CustomThemeProps {
+  children: ReactNode;
+  themeMode?: ThemeMode;
+}
+
 // Theme Provider Component
-const CustomTheme: FC<{ children: ReactNode; themeMode?: "light" | "dark" | "dashboard" }> = ({
+const CustomTheme: FC<CustomThemeProps> = ({
   children,
   themeMode: propThemeMode,
 }) => {
-  // Use context if available, otherwise use prop
-  let actualThemeMode: "light" | "dark" | "dashboard" = "dashboard";
-  try {
-    const context = useThemeMode();
-    actualThemeMode = context.themeMode;
-  } catch {
-    actualThemeMode = propThemeMode || "dashboard";
-  }
-
-  const theme = responsiveFontSizes(themes[actualThemeMode]);
+  const context = useOptionalThemeMode();
+  const resolvedThemeMode: ThemeMode = propThemeMode ?? context?.themeMode ?? "dashboard";
+  const theme = useMemo(() => responsiveFontSizes(themes[resolvedThemeMode]), [resolvedThemeMode]);
   return (
     <MuiThemeProvider theme={theme}>
       <CssBaseline />

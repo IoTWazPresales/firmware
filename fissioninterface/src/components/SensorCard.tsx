@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Card, Typography, Box, Switch, Skeleton, Badge } from '@mui/material';
 import WarningIcon from '@mui/icons-material/Warning';
 import ChartContainer from './ChartContainer';
@@ -15,6 +15,7 @@ interface SensorCardProps {
   deviceStatus?: boolean;
   progressValue?: number;
   healthColor?: (value: number) => string;
+  onClick?: () => void;
 }
 
 const SensorCard: React.FC<SensorCardProps> = ({
@@ -29,18 +30,8 @@ const SensorCard: React.FC<SensorCardProps> = ({
   deviceStatus,
   progressValue,
   healthColor,
+  onClick,
 }) => {
-  const [loadingText, setLoadingText] = useState('Loading');
-
-  useEffect(() => {
-    if (loading) {
-      const interval = setInterval(() => {
-        setLoadingText((prev) => (prev === 'Loading...' ? 'Loading' : `${prev}.`));
-      }, 500);
-      return () => clearInterval(interval);
-    }
-  }, [loading]);
-  
   const showThresholds = minThreshold !== undefined && maxThreshold !== undefined;
   const resolvedHealthColor =
     healthColor && progressValue !== undefined ? healthColor(progressValue) : 'primary';
@@ -50,6 +41,16 @@ const SensorCard: React.FC<SensorCardProps> = ({
     (minThreshold !== null && value < minThreshold) ||
     (maxThreshold !== null && value > maxThreshold)
   );
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!onClick) {
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onClick();
+    }
+  };
 
   return (
     <Badge
@@ -72,11 +73,17 @@ const SensorCard: React.FC<SensorCardProps> = ({
           flexDirection: 'column',
           alignItems: 'center',
           transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
+          cursor: onClick ? 'pointer' : 'default',
           '&:hover': {
             transform: 'translateY(-4px)',
             boxShadow: isAlert ? 8 : 4,
           },
         }}
+        onClick={onClick}
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onKeyDown={handleKeyDown}
+        aria-label={onClick ? `View details for ${title}` : undefined}
       >
       <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', mb: 1 }}>
         <Typography variant="subtitle2">{title}</Typography>

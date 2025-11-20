@@ -24,4 +24,6 @@ class SensorHistory {
     }
 }
 
-export default new SensorHistory();
+const sensorHistory = new SensorHistory();
+
+export default sensorHistory;

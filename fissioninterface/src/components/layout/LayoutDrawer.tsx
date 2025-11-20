@@ -3,20 +3,8 @@ import { FC } from 'react';
 
 import { Box, Divider, Drawer, Toolbar, Typography } from '@mui/material';
 
-import { PROJECT_NAME } from '../../api/env';
 import LayoutMenu from './LayoutMenu';
 import { DRAWER_WIDTH } from './Layout';
-
-const LayoutDrawerLogo = styled('img')(({ theme }) => ({
-  [theme.breakpoints.down("sm")]: {
-    height: 24,
-    marginRight: theme.spacing(2)
-  },
-  [theme.breakpoints.up("sm")]: {
-    height: 36,
-    marginRight: theme.spacing(2)
-  }
-}));
 
 interface LayoutDrawerProps {
   mobileOpen: boolean;

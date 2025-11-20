@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
 import { useWs } from '../utils/useWs';
-import { WEB_SOCKET_ROOT } from '../api/endpoints';
 import { SensorValues } from '../types/sensors';
 
 interface SensorWebSocketData {

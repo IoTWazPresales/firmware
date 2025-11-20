@@ -1,7 +1,7 @@
 import React, { FC, RefObject, useEffect, useState } from 'react';
 import '../App.css';
 import { SnackbarProvider, useSnackbar } from 'notistack';
-import { IconButton, Box, Paper, Typography, Chip, Stack } from '@mui/material';
+import { IconButton, Box, Paper, Typography, Chip, Stack, FormControlLabel, Switch, LinearProgress } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SensorCard from '../components/SensorCard';
 import CustomTheme from '../CustomTheme';
@@ -9,6 +9,10 @@ import SensorService from '../api/SensorService';
 import { fetchThresholds, getDeviceStates, Thresholds, DeviceStates } from '../api/ControllerService';
 import { SensorCapabilityMeta, SensorValues } from '../types/sensors';
 import TelemetryService, { TelemetryResponse } from '../api/TelemetryService';
+import { useSensorWebSocket } from '../hooks/useSensorWebSocket';
+import SensorHistory, { SensorLogEntry } from '../api/SensorHistory';
+import HistoricalTrends from '../components/HistoricalTrends';
+import SensorDetailDialog from '../components/SensorDetailDialog';
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
@@ -250,6 +254,10 @@ const Dashboard: FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [telemetry, setTelemetry] = useState<TelemetryResponse | null>(null);
   const [useWebSocket, setUseWebSocket] = useState<boolean>(true);
+  const [historyLogs, setHistoryLogs] = useState<SensorLogEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [selectedCard, setSelectedCard] = useState<DashboardCardConfig | null>(null);
   
   // WebSocket integration
   const { connected: wsConnected, sensorData: wsSensorData } = useSensorWebSocket(useWebSocket);
@@ -328,6 +336,36 @@ const Dashboard: FC = () => {
     };
   }, [enqueueSnackbar, useWebSocket, wsConnected]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const fetchHistoryLogs = async () => {
+      setHistoryLoading(true);
+      setHistoryError(null);
+      try {
+        const logs = await SensorHistory.getSensorLogs();
+        if (!cancelled) {
+          setHistoryLogs(logs);
+        }
+      } catch (error) {
+        console.error('Failed to load historical logs', error);
+        if (!cancelled) {
+          setHistoryError('Unable to load historical sensor data right now.');
+        }
+      } finally {
+        if (!cancelled) {
+          setHistoryLoading(false);
+        }
+      }
+    };
+
+    fetchHistoryLogs();
+    const interval = setInterval(fetchHistoryLogs, 60000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
   const notistackRef: RefObject<any> = React.createRef();
   const onClickDismiss = (key: string | number | undefined) => () => {
     notistackRef.current?.closeSnackbar(key);
@@ -363,6 +401,7 @@ const Dashboard: FC = () => {
         deviceStatus={deviceStatus}
         progressValue={progressProps?.progressValue}
         healthColor={progressProps?.healthColor}
+        onClick={() => setSelectedCard(config)}
       />
     );
   };
@@ -380,6 +419,17 @@ const Dashboard: FC = () => {
         )}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 1 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between">
+            <Chip
+              label={wsConnected ? 'Realtime stream active' : 'Realtime stream paused'}
+              color={wsConnected ? 'success' : 'default'}
+            />
+            <FormControlLabel
+              control={<Switch checked={useWebSocket} onChange={(_, checked) => setUseWebSocket(checked)} />}
+              label="Realtime WebSocket"
+            />
+          </Stack>
+
           {telemetry && (
             <Paper 
               sx={{ 
@@ -474,7 +524,39 @@ const Dashboard: FC = () => {
               {cardConfigs.map(renderCard)}
             </Box>
           )}
+
+          <Box>
+            {historyLoading && <LinearProgress sx={{ mb: 1 }} />}
+            {historyError && (
+              <Typography variant="body2" color="error" sx={{ mb: 1 }}>
+                {historyError}
+              </Typography>
+            )}
+            <HistoricalTrends logs={historyLogs} />
+          </Box>
         </Box>
+        <SensorDetailDialog
+          open={Boolean(selectedCard)}
+          onClose={() => setSelectedCard(null)}
+          sensorName={selectedCard?.title ?? ''}
+          unit={selectedCard?.unit ?? ''}
+          value={selectedCard ? sensorData[selectedCard.id] ?? null : null}
+          history={
+            selectedCard
+              ? sensorHistory[selectedCard.historyKey ?? selectedCard.id] ?? []
+              : []
+          }
+          thresholds={
+            selectedCard?.thresholdSelector
+              ? selectedCard.thresholdSelector(thresholds)
+              : undefined
+          }
+          deviceStatus={
+            selectedCard?.deviceStateKey
+              ? deviceStates?.[selectedCard.deviceStateKey]
+              : undefined
+          }
+        />
       </SnackbarProvider>
     </CustomTheme>
   );

@@ -4,6 +4,7 @@ import {useState} from "react"
 import { ListItem, ListItemButton, ListItemIcon, ListItemText, SvgIconProps } from "@mui/material";
 
 import { routeMatches } from "../../utils/route";
+import { useOptionalThemeMode } from "../../contexts/ThemeContext";
 
 interface LayoutMenuItemProps {
   icon: React.ComponentType<SvgIconProps>;
@@ -15,8 +16,8 @@ interface LayoutMenuItemProps {
 const LayoutMenuItem: FC<LayoutMenuItemProps> = ({ icon: Icon, label, to, disabled }) => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-
-
+  const themeContext = useOptionalThemeMode();
+  const isDashboardTheme = themeContext?.themeMode === 'dashboard';
 
   const [key, setKey] = useState(0);
 
@@ -34,7 +35,7 @@ const LayoutMenuItem: FC<LayoutMenuItemProps> = ({ icon: Icon, label, to, disabl
         onClick={handleClick} 
         disabled={disabled}
         sx={{
-          ...(isActive && {
+          ...(isActive && isDashboardTheme && {
             backgroundColor: 'rgba(0, 212, 255, 0.15)',
             borderLeft: '3px solid #00D4FF',
             boxShadow: 'inset 0 0 10px rgba(0, 212, 255, 0.2)',
@@ -47,7 +48,12 @@ const LayoutMenuItem: FC<LayoutMenuItemProps> = ({ icon: Icon, label, to, disabl
               textShadow: '0 0 8px rgba(0, 212, 255, 0.4)',
             },
           }),
-          '&:hover': {
+          ...(isActive && !isDashboardTheme && {
+            '& .MuiListItemIcon-root': {
+              color: 'primary.main',
+            },
+          }),
+          '&:hover': isDashboardTheme ? {
             backgroundColor: isActive ? 'rgba(0, 212, 255, 0.2)' : 'rgba(0, 212, 255, 0.08)',
             boxShadow: isActive 
               ? 'inset 0 0 15px rgba(0, 212, 255, 0.3)' 
@@ -55,7 +61,7 @@ const LayoutMenuItem: FC<LayoutMenuItemProps> = ({ icon: Icon, label, to, disabl
             '& .MuiListItemIcon-root': {
               color: isActive ? '#00FFFF' : 'rgba(0, 212, 255, 0.7)',
             },
-          },
+          } : {},
           transition: 'all 0.3s ease',
         }}
       >

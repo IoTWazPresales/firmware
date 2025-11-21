@@ -65,7 +65,7 @@ void WiFiSettingsService::WiFiSettings::toJson(JsonObject& root) const {
 void WiFiSettingsService::loadSettings() {
   _settings.ssid = "9532828 [2Ghz]";    // Your network SSID
   _settings.password = "0611401627";    // Your network password
-  _settings.hostname = "ESP32_Device";   // Device hostname
+  _settings.hostname = "NeuroGrow";   // Device hostname
   _settings.staticIPConfig = false;      // Use DHCP
   Serial.println("Loaded SSID: " + _settings.ssid);
   Serial.println("Loaded Password: " + _settings.password);

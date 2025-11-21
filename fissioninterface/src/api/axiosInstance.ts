@@ -29,7 +29,7 @@ axiosInstance.interceptors.response.use(
     // Handle network errors (backend not available)
     if (!error.response) {
       // Network error - backend is not reachable
-      const networkError = new Error('Backend not available. Please ensure the ESP32 is connected and running.');
+      const networkError = new Error('Backend not available. Please ensure the NeuroGrow device is connected and running.');
       (networkError as any).isNetworkError = true;
       (networkError as any).originalError = error;
       return Promise.reject(networkError);

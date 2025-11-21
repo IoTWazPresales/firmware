@@ -324,7 +324,7 @@ const Dashboard: FC = () => {
       } catch (error: any) {
         // Check if it's a network error
         if (error?.isNetworkError) {
-          enqueueSnackbar('Backend not available. Please ensure the ESP32 is connected and running.', { 
+          enqueueSnackbar('Backend not available. Please ensure the NeuroGrow device is connected and running.', { 
             variant: 'warning',
             persist: true 
           });

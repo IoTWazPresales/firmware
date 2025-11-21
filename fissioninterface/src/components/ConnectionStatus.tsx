@@ -13,8 +13,8 @@ const ConnectionStatus: FC = () => {
     <Tooltip 
       title={
         isConnected 
-          ? 'Connected to ESP32 backend' 
-          : 'Backend not available. Please ensure the ESP32 is connected and running.'
+          ? 'Connected to NeuroGrow device' 
+          : 'Backend not available. Please ensure the NeuroGrow device is connected and running.'
       }
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

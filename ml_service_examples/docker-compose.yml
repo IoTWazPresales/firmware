@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  ml-service:
+    build: .
+    container_name: neurogrow-ml
+    ports:
+      - "8000:8000"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - TRAIN_ON_STARTUP=${TRAIN_ON_STARTUP:-false}
+    volumes:
+      - ./models:/app/models  # Persist trained models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+

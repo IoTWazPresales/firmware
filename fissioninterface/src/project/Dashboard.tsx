@@ -321,8 +321,16 @@ const Dashboard: FC = () => {
 
           return next;
         });
-      } catch (error) {
-        enqueueSnackbar('Failed to fetch sensor data', { variant: 'error' });
+      } catch (error: any) {
+        // Check if it's a network error
+        if (error?.isNetworkError) {
+          enqueueSnackbar('Backend not available. Please ensure the ESP32 is connected and running.', { 
+            variant: 'warning',
+            persist: true 
+          });
+        } else {
+          enqueueSnackbar('Failed to fetch sensor data', { variant: 'error' });
+        }
       } finally {
         setLoading(false);
       }

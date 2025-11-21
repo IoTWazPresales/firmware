@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axiosInstance from './axiosInstance';
 import { API_CONFIG } from './apiConfig';
 import { WiFiNetworkList, WiFiSettings, WiFiStatus } from '../types';
 
@@ -6,7 +6,7 @@ class WiFiService {
     // Method to fetch WiFi status
     public async readWiFiStatus(): Promise<WiFiStatus> {
         try {
-            const response = await axios.get<WiFiStatus>(API_CONFIG.WIFI.STATUS);
+            const response = await axiosInstance.get<WiFiStatus>(API_CONFIG.WIFI.STATUS);
             return response.data;
         } catch (error) {
             console.error('Error fetching WiFi status:', error);
@@ -17,7 +17,7 @@ class WiFiService {
     // Method to scan networks
     public async scanNetworks(): Promise<void> {
         try {
-            await axios.get(API_CONFIG.WIFI.SCAN);
+            await axiosInstance.get(API_CONFIG.WIFI.SCAN);
         } catch (error) {
             console.error('Error scanning networks:', error);
             throw error;
@@ -27,7 +27,7 @@ class WiFiService {
     // Method to list available networks
     public async listNetworks(): Promise<WiFiNetworkList> {
         try {
-            const response = await axios.get<WiFiNetworkList>(API_CONFIG.WIFI.LIST);
+            const response = await axiosInstance.get<WiFiNetworkList>(API_CONFIG.WIFI.LIST);
             return response.data;
         } catch (error) {
             console.error('Error listing networks:', error);
@@ -38,7 +38,7 @@ class WiFiService {
     // Method to fetch WiFi settings
     public async readWiFiSettings(): Promise<WiFiSettings> {
         try {
-            const response = await axios.get<WiFiSettings>(API_CONFIG.WIFI.SETTINGS);
+            const response = await axiosInstance.get<WiFiSettings>(API_CONFIG.WIFI.SETTINGS);
             return response.data;
         } catch (error) {
             console.error('Error fetching WiFi settings:', error);
@@ -49,7 +49,7 @@ class WiFiService {
     // Method to update WiFi settings
     public async updateWiFiSettings(wifiSettings: WiFiSettings): Promise<WiFiSettings> {
         try {
-            const response = await axios.post<WiFiSettings>(API_CONFIG.WIFI.SETTINGS, wifiSettings);
+            const response = await axiosInstance.post<WiFiSettings>(API_CONFIG.WIFI.SETTINGS, wifiSettings);
             return response.data;
         } catch (error) {
             console.error('Error updating WiFi settings:', error);

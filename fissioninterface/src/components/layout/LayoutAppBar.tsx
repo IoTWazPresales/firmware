@@ -17,6 +17,7 @@ import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import { useThemeMode } from '../../contexts/ThemeContext';
+import ConnectionStatus from '../ConnectionStatus';
 
 export const DRAWER_WIDTH = 280;
 
@@ -110,6 +111,9 @@ const LayoutAppBar: FC<LayoutAppBarProps> = ({
         </Typography>
 
         <Box flexGrow={1} />
+
+        {/* Connection Status */}
+        <ConnectionStatus />
 
         {/* Theme Toggle */}
         <Tooltip title={`Switch theme (Current: ${themeMode})`}>

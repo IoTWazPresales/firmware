@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axiosInstance from './axiosInstance';
 import { API_CONFIG } from './apiConfig';
 
 export interface TelemetryResponse {
@@ -17,7 +17,7 @@ export interface TelemetryResponse {
 
 class TelemetryService {
   async fetchTelemetry(): Promise<TelemetryResponse> {
-    const response = await axios.get(API_CONFIG.TELEMETRY.STATUS);
+    const response = await axiosInstance.get(API_CONFIG.TELEMETRY.STATUS);
     return response.data as TelemetryResponse;
   }
 }

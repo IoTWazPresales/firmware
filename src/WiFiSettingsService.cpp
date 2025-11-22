@@ -16,10 +16,14 @@ WiFiSettingsService::WiFiSettingsService(AsyncWebServer* server) : _server(serve
     handleSettingsRequest(request);
   });
 
-  loadSettings();
+  // Don't load settings here - LittleFS might not be mounted yet
+  // Load settings will be called in begin() after LittleFS is mounted
 }
 
 void WiFiSettingsService::begin() {
+  // Load settings after LittleFS is mounted
+  loadSettings();
+  
   if (WiFi.status() != WL_CONNECTED) {
     reconfigureWiFiConnection();
   }
@@ -64,7 +68,18 @@ void WiFiSettingsService::WiFiSettings::toJson(JsonObject& root) const {
 }
 
 void WiFiSettingsService::loadSettings() {
-  // Try to load from LittleFS first
+  // Only try to load if LittleFS is mounted
+  if (!LittleFS.begin(false)) {  // false = don't format if mount fails
+    // LittleFS not mounted, use defaults
+    _settings.ssid = "";
+    _settings.password = "";
+    _settings.hostname = "NeuroGrow";
+    _settings.staticIPConfig = false;
+    Serial.println("LittleFS not mounted - using defaults (AP mode)");
+    return;
+  }
+  
+  // Try to load from LittleFS
   if (LittleFS.exists(WIFI_SETTINGS_FILE)) {
     File file = LittleFS.open(WIFI_SETTINGS_FILE, "r");
     if (file && file.size() > 0) {

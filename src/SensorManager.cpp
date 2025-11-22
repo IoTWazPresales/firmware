@@ -121,23 +121,51 @@ void SensorManager::loadConfig() {
 }
 
 void SensorManager::begin() {
+    Serial.println("[SensorManager] Starting initialization...");
+    Serial.flush();
+    
+    Serial.println("[SensorManager] Initializing I2C...");
+    Serial.flush();
     Wire.begin(I2C_SDA, I2C_SCL);
+    Serial.println("[SensorManager] I2C initialized");
+    Serial.flush();
+    
+    Serial.println("[SensorManager] Loading manifests...");
+    Serial.flush();
     loadManifests(); // Load manifests first
+    Serial.println("[SensorManager] Manifests loaded");
+    Serial.flush();
+    
+    Serial.println("[SensorManager] Loading config...");
+    Serial.flush();
     loadConfig(); // Then load config (may be empty on first boot)
+    Serial.println("[SensorManager] Config loaded");
+    Serial.flush();
 
-    for (auto *p: _dht11Sensors)      p->begin();
-    for (auto *p: _tempSensors)       p->begin();
-    for (auto *p: _tdsSensors)        p->begin();
-    if (_rtcSensor)                   _rtcSensor->begin();
-    for (auto *p: _phSensors)         p->begin();
-    for (auto *p: _moistureSensors)   p->begin();
-    for (auto *p: _atmosphereSensors) p->begin();
-    for (auto *p: _spectralSensors)   p->begin();
-    for (auto *p: _npkSensors)        p->begin();
+    Serial.println("[SensorManager] Initializing sensors...");
+    Serial.flush();
+    for (auto *p: _dht11Sensors)      { if (p) p->begin(); }
+    for (auto *p: _tempSensors)       { if (p) p->begin(); }
+    for (auto *p: _tdsSensors)        { if (p) p->begin(); }
+    if (_rtcSensor)                   { _rtcSensor->begin(); }
+    for (auto *p: _phSensors)         { if (p) p->begin(); }
+    for (auto *p: _moistureSensors)   { if (p) p->begin(); }
+    for (auto *p: _atmosphereSensors) { if (p) p->begin(); }
+    for (auto *p: _spectralSensors)   { if (p) p->begin(); }
+    for (auto *p: _npkSensors)        { if (p) p->begin(); }
+    Serial.println("[SensorManager] Sensors initialized");
+    Serial.flush();
 
+    Serial.println("[SensorManager] Registering capabilities...");
+    Serial.flush();
     registerCapabilities();
+    Serial.println("[SensorManager] Updating samples...");
+    Serial.flush();
     updateSamples();
     _needsCapabilityRefresh = false;
+    
+    Serial.println("[SensorManager] Initialization complete");
+    Serial.flush();
 }
 
 void SensorManager::registerNumericCapability(const String& id,

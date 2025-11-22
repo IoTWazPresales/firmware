@@ -107,25 +107,42 @@ void clearSupabaseCredentials() {
 }
 void setup() {
     Serial.begin(115200);
-    Serial.setDebugOutput(true);
-    delay(1000);
+    delay(2000);  // Give Serial time to initialize
+    Serial.println("\n\n=== NEUROGROW BOOT ===");
+    Serial.println("Serial initialized");
+    Serial.flush();
     
+    Serial.println("Starting Logger...");
     Logger::setLevel(LogLevel::INFO);
     Logger::info("🚀 Firmware starting...");
+    Serial.flush();
     
-    // Restore critical state
+    Serial.println("Restoring critical state...");
     ErrorRecovery::restoreCriticalState();
+    Serial.println("Critical state restored");
+    Serial.flush();
     
-    // Save initial state
+    Serial.println("Saving initial state...");
     ErrorRecovery::saveCriticalState();
+    Serial.println("Initial state saved");
+    Serial.flush();
     
-      // ─── TASK WATCHDOG ──────────────────────────────────────────────
-    // 10-second timeout, panic=true will abort() on timeout
-    esp_task_wdt_init(10, /* panic */ true);
+    Serial.println("Initializing ESP32React...");
     esp32React.begin();
+    Serial.println("ESP32React initialized");
+    Serial.flush();
     
 
+    // ─── TASK WATCHDOG ──────────────────────────────────────────────
+    // Disable panic mode temporarily to debug boot loop
+    // 30-second timeout, panic=false (just warn, don't restart)
+    Serial.println("Initializing watchdog (non-panic mode for debugging)...");
+    esp_task_wdt_init(30, /* panic */ false);
+    Serial.println("Watchdog initialized");
+    Serial.flush();
+    
     // ─── Mount LittleFS ───────────────────────────────────────────
+    Serial.println("Mounting LittleFS...");
     bool littlefsMounted = LittleFS.begin(true);
     if (!littlefsMounted) {
         Serial.println("LittleFS Mount Failed");
@@ -260,7 +277,11 @@ void setup() {
 
   
    
+    Serial.println("Starting TaskManager...");
+    Serial.flush();
     taskManager.begin();
+    Serial.println("TaskManager started");
+    Serial.flush();
     
     // Auto-detect sensors if config is empty
     DynamicJsonDocument cfg(512);
@@ -291,9 +312,20 @@ void setup() {
     Serial.println("   🌉 Bridge: MQTT ↔ Supabase synchronization");
     Serial.println("   ⚡ WebSocket: Real-time updates on /ws");
     
+    Serial.println("Starting WebSocket service...");
     webSocketService.begin();
+    Serial.println("WebSocket started");
+    
+    Serial.println("Starting Sensor Submission service...");
     sensorSubmissionService.begin();
+    Serial.println("Sensor Submission started");
+    
+    Serial.println("Starting Wireless Sensor Manager...");
     WirelessSensorManager::begin();
+    Serial.println("Wireless Sensor Manager started");
+    
+    Serial.println("\n=== SETUP COMPLETE ===");
+    Serial.flush();
 }
 
 void loop() {

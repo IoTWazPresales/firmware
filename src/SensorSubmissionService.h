@@ -11,7 +11,7 @@ public:
 private:
     AsyncWebServer* _server;
     
-    void handleSubmitSensor(AsyncWebServerRequest* request, JsonVariant& json);
+    void handleSubmitSensor(AsyncWebServerRequest* request, const JsonVariant& json);
     void handleGetSubmissions(AsyncWebServerRequest* request);
     void handleGetSubmissionStatus(AsyncWebServerRequest* request, uint16_t id);
 };

@@ -67,7 +67,7 @@ void SensorSubmissionService::begin() {
     });
 }
 
-void SensorSubmissionService::handleSubmitSensor(AsyncWebServerRequest* request, JsonVariant& json) {
+void SensorSubmissionService::handleSubmitSensor(AsyncWebServerRequest* request, const JsonVariant& json) {
     AsyncJsonResponse* response = new AsyncJsonResponse(false, 1536);
     JsonObject root = response->getRoot();
     

@@ -1,4 +1,17 @@
-const BASE_URL = 'http://192.168.101.252/api';
+// Dynamically determine API base URL based on current host
+// When served from ESP32, this will be the ESP32's IP (e.g., 192.168.4.1)
+// When running locally, this will be localhost
+const getBaseURL = (): string => {
+    if (typeof window !== 'undefined') {
+        const protocol = window.location.protocol;
+        const host = window.location.host;
+        return `${protocol}//${host}/api`;
+    }
+    // Fallback for SSR or when window is not available
+    return '/api';
+};
+
+const BASE_URL = getBaseURL();
 
 export const API_CONFIG = {
     BASE_URL,

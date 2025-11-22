@@ -149,9 +149,21 @@ void setup() {
             if (test) { test.close(); LittleFS.remove("/submissions/.keep"); }
         }
         
-        // 1) Serve only your JS/CSS folders statically:
-        server.serveStatic("/static/js/",  LittleFS, "/static/js/");
-        server.serveStatic("/static/css/", LittleFS, "/static/css/");
+        // Serve static files from root (JS, CSS, images, etc.)
+        server.serveStatic("/static/", LittleFS, "/static/");
+        server.serveStatic("/favicon.ico", LittleFS, "/favicon.ico");
+        server.serveStatic("/manifest.json", LittleFS, "/manifest.json");
+        server.serveStatic("/manifest12.json", LittleFS, "/manifest12.json");
+        server.serveStatic("/robots.txt", LittleFS, "/robots.txt");
+        server.serveStatic("/logo192.png", LittleFS, "/logo192.png");
+        server.serveStatic("/FissionLogo_SkyBlue.png", LittleFS, "/FissionLogo_SkyBlue.png");
+        
+        // Also serve JS/CSS files from root if they're not in /static/
+        server.serveStatic("/*.js", LittleFS, "/", "text/javascript");
+        server.serveStatic("/*.css", LittleFS, "/", "text/css");
+        server.serveStatic("/*.png", LittleFS, "/", "image/png");
+        server.serveStatic("/*.jpg", LittleFS, "/", "image/jpeg");
+        server.serveStatic("/*.ico", LittleFS, "/", "image/x-icon");
 
         if (!LittleFS.exists("/index.html")) {
             Serial.println("⚠️ index.html missing from filesystem");

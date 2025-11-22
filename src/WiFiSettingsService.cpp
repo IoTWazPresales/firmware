@@ -68,17 +68,7 @@ void WiFiSettingsService::WiFiSettings::toJson(JsonObject& root) const {
 }
 
 void WiFiSettingsService::loadSettings() {
-  // Only try to load if LittleFS is mounted
-  if (!LittleFS.begin(false)) {  // false = don't format if mount fails
-    // LittleFS not mounted, use defaults
-    _settings.ssid = "";
-    _settings.password = "";
-    _settings.hostname = "NeuroGrow";
-    _settings.staticIPConfig = false;
-    Serial.println("LittleFS not mounted - using defaults (AP mode)");
-    return;
-  }
-  
+  // LittleFS should already be mounted by main.cpp, just check if file exists
   // Try to load from LittleFS
   if (LittleFS.exists(WIFI_SETTINGS_FILE)) {
     File file = LittleFS.open(WIFI_SETTINGS_FILE, "r");
@@ -140,29 +130,37 @@ void WiFiSettingsService::manageSTA() {
   if (_settings.ssid.isEmpty()) {
     if (WiFi.getMode() != WIFI_AP && WiFi.getMode() != WIFI_AP_STA) {
       Serial.println("No WiFi credentials - Starting AP mode for setup");
+      
+      // Set mode first
       WiFi.mode(WIFI_AP_STA);
+      delay(100);
       
       String apSSID = _settings.hostname.isEmpty() ? "NeuroGrow-Setup" : _settings.hostname + "-Setup";
-      bool apStarted = WiFi.softAP(apSSID.c_str(), "setup12345678", 1, 0, 4);  // SSID, password, channel, hidden, max_connections
+      
+      // Start AP
+      bool apStarted = WiFi.softAP(apSSID.c_str(), "setup12345678", 1, 0, 4);
       
       if (!apStarted) {
         Serial.println("ERROR: Failed to start AP mode!");
+        delay(1000);
         return;
       }
       
+      delay(200);  // Give AP time to initialize
+      
+      // Configure AP IP
       IPAddress apIP(192, 168, 4, 1);
       IPAddress gateway(192, 168, 4, 1);
       IPAddress subnet(255, 255, 255, 0);
       WiFi.softAPConfig(apIP, gateway, subnet);
       
-      delay(100);  // Give AP time to initialize
+      delay(100);
       
       Serial.print("AP Mode started! IP: ");
       Serial.println(WiFi.softAPIP());
       Serial.print("AP SSID: ");
       Serial.println(apSSID);
-      Serial.print("AP Password: setup12345678");
-      Serial.println();
+      Serial.println("AP Password: setup12345678");
       Serial.println("Connect to this network and go to http://192.168.4.1");
       Serial.flush();
     }

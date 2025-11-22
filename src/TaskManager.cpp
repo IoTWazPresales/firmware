@@ -46,7 +46,10 @@ void TaskManager::begin() {
         gCloudEventQueue = xQueueCreate(6, sizeof(CloudEvent));
     }
 
-    xTaskCreatePinnedToCore(WiFi_Manager, "WiFiMgr", 3072, NULL, 3, &_wifiHandle, 0);
+    // DISABLED: WiFi_Manager task - using WiFiSettingsService instead for AP mode support
+    // xTaskCreatePinnedToCore(WiFi_Manager, "WiFiMgr", 3072, NULL, 3, &_wifiHandle, 0);
+    _wifiHandle = nullptr;  // Mark as not used
+    
     xTaskCreatePinnedToCore(Sensor_Manager, "SensorMgr", 3072, _sensorMgr, 1, &_sensorHandle, 1);
     xTaskCreatePinnedToCore(Scanner_Manager, "ScannerMgr", 3072, _scannerMgr, 1, &_scannerHandle, 1);
     xTaskCreatePinnedToCore(Relay_Manager, "RelayMgr", 3072, _relayMgr, 1, &_relayHandle, 1);

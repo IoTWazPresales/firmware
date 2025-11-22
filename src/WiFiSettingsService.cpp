@@ -14,17 +14,33 @@ void WiFiSettingsService::begin() {
   });
   
   // Initialize WiFi here (after Serial is ready)
+  // This initializes the TCP/IP stack
   WiFi.persistent(false);
   WiFi.setAutoReconnect(false);
-  WiFi.mode(WIFI_MODE_NULL);
-  WiFi.onEvent(onStationModeDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
-  WiFi.onEvent(onStationModeStop, ARDUINO_EVENT_WIFI_STA_STOP);
   
   // Load settings after LittleFS is mounted
   loadSettings();
   
-  if (WiFi.status() != WL_CONNECTED) {
-    reconfigureWiFiConnection();
+  // If no settings, start AP mode immediately (initializes TCP/IP stack)
+  if (_settings.ssid.isEmpty()) {
+    Serial.println("No WiFi credentials - Starting AP mode");
+    WiFi.mode(WIFI_AP_STA);
+    delay(100);
+    String apSSID = _settings.hostname.isEmpty() ? "NeuroGrow-Setup" : _settings.hostname + "-Setup";
+    WiFi.softAP(apSSID.c_str(), "setup12345678", 1, 0, 4);
+    IPAddress apIP(192, 168, 4, 1);
+    WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+    delay(500);  // Give TCP/IP stack time to initialize
+    Serial.print("AP Mode: ");
+    Serial.println(WiFi.softAPIP());
+    Serial.println("Connect to: " + apSSID);
+  } else {
+    // Try to connect to saved WiFi
+    WiFi.mode(WIFI_AP_STA);  // Keep AP as fallback
+    WiFi.onEvent(onStationModeDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+    WiFi.onEvent(onStationModeStop, ARDUINO_EVENT_WIFI_STA_STOP);
+    WiFi.begin(_settings.ssid.c_str(), _settings.password.c_str());
+    delay(500);  // Give TCP/IP stack time to initialize
   }
 }
 

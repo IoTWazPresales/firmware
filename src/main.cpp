@@ -237,27 +237,18 @@ void setup() {
         }
     });
 
-    // Initialize WiFi first (required for TCP/IP stack initialization)
-    // Even if we don't connect, we need WiFi initialized for the server
-    Serial.println("Initializing WiFi...");
-    Serial.flush();
-    WiFi.mode(WIFI_AP_STA);
-    WiFi.softAP("NeuroGrow-Setup", "setup12345678", 1, 0, 4);
-    IPAddress apIP(192, 168, 4, 1);
-    WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-    delay(500);  // Give WiFi time to initialize TCP/IP stack
-    Serial.print("AP Mode: ");
-    Serial.println(WiFi.softAPIP());
-    Serial.flush();
-    
     // Start WiFi Settings Service (handles AP mode and STA connection)
+    // This will initialize WiFi and TCP/IP stack
     Serial.println("Starting WiFi Settings Service...");
     Serial.flush();
     wifiSettingsService.begin();
     Serial.println("WiFi Settings Service started");
     Serial.flush();
     
-    // Start web server (TCP/IP stack is now initialized)
+    // Give WiFi time to initialize TCP/IP stack
+    delay(1000);
+    
+    // Start web server (TCP/IP stack should be initialized by now)
     Serial.println("Starting web server...");
     Serial.flush();
     server.begin();

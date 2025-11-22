@@ -100,8 +100,9 @@ void clearSupabaseCredentials() {
 }
 void setup() {
     Serial.begin(115200);
-    delay(1000);
+    delay(2000);  // Longer delay to ensure Serial is fully ready
     Serial.println("\n=== NEUROGROW BOOT ===");
+    Serial.flush();
     
     Logger::setLevel(LogLevel::INFO);
     Logger::info("Firmware starting");
@@ -237,18 +238,28 @@ void setup() {
         }
     });
 
-    // Start WiFi Settings Service (handles AP mode and STA connection)
-    // This will initialize WiFi and TCP/IP stack
+    // Initialize WiFi FIRST (required for TCP/IP stack)
+    // Simple AP mode for initial setup
+    Serial.println("Initializing WiFi...");
+    Serial.flush();
+    WiFi.mode(WIFI_AP_STA);
+    delay(100);
+    WiFi.softAP("NeuroGrow-Setup", "setup12345678", 1, 0, 4);
+    IPAddress apIP(192, 168, 4, 1);
+    WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+    delay(1000);  // Give TCP/IP stack time to initialize
+    Serial.print("AP Mode IP: ");
+    Serial.println(WiFi.softAPIP());
+    Serial.flush();
+    
+    // Now start WiFi Settings Service (for future STA connection)
     Serial.println("Starting WiFi Settings Service...");
     Serial.flush();
     wifiSettingsService.begin();
     Serial.println("WiFi Settings Service started");
     Serial.flush();
     
-    // Give WiFi time to initialize TCP/IP stack
-    delay(1000);
-    
-    // Start web server (TCP/IP stack should be initialized by now)
+    // Start web server (TCP/IP stack is now initialized)
     Serial.println("Starting web server...");
     Serial.flush();
     server.begin();

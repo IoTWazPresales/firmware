@@ -71,16 +71,9 @@ WiFiScanner            wifiScanner(&server);
 SystemStatus           systemStatus(&server);
 FactoryResetService    factoryResetService(&server, &LittleFS);
 SensorEndpoints        endpoints(&server, &sensorManager,&supabaseConnector);
-SensorDataCollector    dataCollector(
-    sensorManager.getFirstPH(),
-    sensorManager.getFirstTemperatureSensor(),
-    sensorManager.getFirstDHT11(),
-    sensorManager.getFirstMoistureSensor(),
-    sensorManager.getFirstRTC(),
-    sensorManager.getFirstTDS(),
-    sensorManager.getFirstAtmosphereSensor()
-);
-DataLogger             dataLogger(&fileSystem, &dataCollector, &server);
+// dataCollector will be initialized in setup() after sensorManager.begin()
+SensorDataCollector*   dataCollector = nullptr;
+DataLogger*            dataLogger = nullptr;
 OTAHandler             otaHandler;
 TelemetryService       telemetryService(&server);
 DriverPackageManager   driverPackageManager(&LittleFS);
@@ -281,6 +274,27 @@ void setup() {
     Serial.flush();
     taskManager.begin();
     Serial.println("TaskManager started");
+    Serial.flush();
+    
+    // Initialize SensorDataCollector and DataLogger after sensors are initialized
+    Serial.println("Initializing SensorDataCollector...");
+    Serial.flush();
+    dataCollector = new SensorDataCollector(
+        sensorManager.getFirstPH(),
+        sensorManager.getFirstTemperatureSensor(),
+        sensorManager.getFirstDHT11(),
+        sensorManager.getFirstMoistureSensor(),
+        sensorManager.getFirstRTC(),
+        sensorManager.getFirstTDS(),
+        sensorManager.getFirstAtmosphereSensor()
+    );
+    Serial.println("SensorDataCollector initialized");
+    Serial.flush();
+    
+    Serial.println("Initializing DataLogger...");
+    Serial.flush();
+    dataLogger = new DataLogger(&fileSystem, dataCollector, &server);
+    Serial.println("DataLogger initialized");
     Serial.flush();
     
     // Auto-detect sensors if config is empty

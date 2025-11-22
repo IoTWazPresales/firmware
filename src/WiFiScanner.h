@@ -19,8 +19,7 @@ class WiFiScanner {
  private:
   void scanNetworks(AsyncWebServerRequest* request);
   void listNetworks(AsyncWebServerRequest* request);
-
-
+  bool _isScanning = false;
 };
 
 #endif  // end WiFiScanner_h

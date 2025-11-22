@@ -14,7 +14,7 @@ WiFiScanner::WiFiScanner(AsyncWebServer* server) {
 
 void WiFiScanner::scanNetworks(AsyncWebServerRequest* request) {
   // Ensure WiFi is in a mode that supports scanning (AP_STA or STA)
-  wl_status_t currentMode = WiFi.getMode();
+  wifi_mode_t currentMode = WiFi.getMode();
   if (currentMode != WIFI_AP_STA && currentMode != WIFI_STA) {
     // Switch to AP_STA mode to allow scanning while keeping AP active
     WiFi.mode(WIFI_AP_STA);
@@ -25,8 +25,6 @@ void WiFiScanner::scanNetworks(AsyncWebServerRequest* request) {
   if (WiFi.status() == WL_NO_SSID_AVAIL || WiFi.status() == WL_IDLE_STATUS) {
     // STA is initialized but not connected - this is fine for scanning
   }
-
-  _isScanning = true;
 
   // Check if a scan is already in progress
   int scanResult = WiFi.scanComplete();

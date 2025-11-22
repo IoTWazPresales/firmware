@@ -150,8 +150,12 @@ void setup() {
             if (test) { test.close(); LittleFS.remove("/submissions/.keep"); }
         }
         
-        // Serve static files from root (JS, CSS, images, etc.)
-        server.serveStatic("/static/", LittleFS, "/static/");
+        // Serve static files - map /static/* requests to root files
+        // The build process puts files in root, but browser requests /static/*
+        // Map /static/ to root of LittleFS so /static/main.b0b7b627.js -> /main.b0b7b627.js
+        server.serveStatic("/static/", LittleFS, "/");
+        
+        // Serve root-level files directly
         server.serveStatic("/favicon.ico", LittleFS, "/favicon.ico");
         server.serveStatic("/manifest.json", LittleFS, "/manifest.json");
         server.serveStatic("/manifest12.json", LittleFS, "/manifest12.json");
@@ -159,7 +163,7 @@ void setup() {
         server.serveStatic("/logo192.png", LittleFS, "/logo192.png");
         server.serveStatic("/FissionLogo_SkyBlue.png", LittleFS, "/FissionLogo_SkyBlue.png");
         
-        // Also serve JS/CSS files from root if they're not in /static/
+        // Fallback: serve JS/CSS files from root if requested from root (without /static/)
         server.serveStatic("/*.js", LittleFS, "/", "text/javascript");
         server.serveStatic("/*.css", LittleFS, "/", "text/css");
         server.serveStatic("/*.png", LittleFS, "/", "image/png");

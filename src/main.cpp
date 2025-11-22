@@ -238,10 +238,16 @@ void setup() {
     });
 
     // Start WiFi Settings Service (handles AP mode and STA connection)
-    // This will create AP mode if needed and start the server
+    // This will create AP mode if needed
+    Serial.println("Starting WiFi Settings Service...");
+    Serial.flush();
     wifiSettingsService.begin();
+    Serial.println("WiFi Settings Service started");
+    Serial.flush();
     
     // Start web server (needed for AP mode)
+    Serial.println("Starting web server...");
+    Serial.flush();
     server.begin();
     Serial.println("Web server started on port 80");
     Serial.flush();

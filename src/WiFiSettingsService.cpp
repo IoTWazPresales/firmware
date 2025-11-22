@@ -3,24 +3,21 @@
 #include "WiFiStatus.h"
 #include <LittleFS.h>
 WiFiSettingsService::WiFiSettingsService(AsyncWebServer* server) : _server(server), _lastConnectionAttempt(0) {
-  // Disable WiFi persistence and auto-reconnect on startup
-  WiFi.persistent(false);
-  WiFi.setAutoReconnect(false);
-
-  WiFi.mode(WIFI_MODE_NULL);
-  WiFi.onEvent(onStationModeDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
-  WiFi.onEvent(onStationModeStop, ARDUINO_EVENT_WIFI_STA_STOP);
-
+  // Don't initialize WiFi in constructor - do it in begin() after Serial is ready
   // Set up HTTP route to handle WiFi settings requests
   _server->on(WIFI_SETTINGS_SERVICE_PATH, HTTP_GET, [this](AsyncWebServerRequest* request) {
     handleSettingsRequest(request);
   });
-
-  // Don't load settings here - LittleFS might not be mounted yet
-  // Load settings will be called in begin() after LittleFS is mounted
 }
 
 void WiFiSettingsService::begin() {
+  // Initialize WiFi here (after Serial is ready)
+  WiFi.persistent(false);
+  WiFi.setAutoReconnect(false);
+  WiFi.mode(WIFI_MODE_NULL);
+  WiFi.onEvent(onStationModeDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  WiFi.onEvent(onStationModeStop, ARDUINO_EVENT_WIFI_STA_STOP);
+  
   // Load settings after LittleFS is mounted
   loadSettings();
   

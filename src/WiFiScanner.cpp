@@ -44,12 +44,10 @@ void WiFiScanner::scanNetworks(AsyncWebServerRequest* request) {
   
   if (networksFound == -1) {
     // Scan failed to start
-    _isScanning = false;
     request->send(500, "application/json", "{\"status\":\"error\",\"message\":\"Failed to start WiFi scan\"}");
     return;
   }
 
-  _isScanning = false;
   request->send(202, "application/json", "{\"status\":\"scanning\",\"message\":\"Scan started\"}");
 }
 

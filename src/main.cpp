@@ -100,47 +100,26 @@ void clearSupabaseCredentials() {
 }
 void setup() {
     Serial.begin(115200);
-    delay(2000);  // Give Serial time to initialize
-    Serial.println("\n\n=== NEUROGROW BOOT ===");
-    Serial.println("Serial initialized");
-    Serial.flush();
+    delay(1000);
+    Serial.println("\n=== NEUROGROW BOOT ===");
     
-    Serial.println("Starting Logger...");
     Logger::setLevel(LogLevel::INFO);
-    Logger::info("🚀 Firmware starting...");
-    Serial.flush();
+    Logger::info("Firmware starting");
     
-    Serial.println("Restoring critical state...");
     ErrorRecovery::restoreCriticalState();
-    Serial.println("Critical state restored");
-    Serial.flush();
-    
-    Serial.println("Saving initial state...");
     ErrorRecovery::saveCriticalState();
-    Serial.println("Initial state saved");
-    Serial.flush();
     
-    Serial.println("Initializing ESP32React...");
     esp32React.begin();
-    Serial.println("ESP32React initialized");
-    Serial.flush();
     
-
     // ─── TASK WATCHDOG ──────────────────────────────────────────────
-    // Disable panic mode temporarily to debug boot loop
-    // 30-second timeout, panic=false (just warn, don't restart)
-    Serial.println("Initializing watchdog (non-panic mode for debugging)...");
     esp_task_wdt_init(30, /* panic */ false);
-    Serial.println("Watchdog initialized");
-    Serial.flush();
     
     // ─── Mount LittleFS ───────────────────────────────────────────
-    Serial.println("Mounting LittleFS...");
     bool littlefsMounted = LittleFS.begin(true);
     if (!littlefsMounted) {
         Serial.println("LittleFS Mount Failed");
     } else {
-        Serial.println("LittleFS Mounted Successfully");
+        Serial.println("LittleFS OK");
         
         if (!LittleFS.exists("/config.json")) {
             fileSystem.writeFile(LittleFS, "/config.json", "{}");
@@ -156,40 +135,18 @@ void setup() {
             fileSystem.writeFile(LittleFS, "/sensor_data.json", "{}");
         }
         
-        // Ensure /manifests directory exists
+        // Ensure directories exist
         if (!LittleFS.exists("/manifests")) {
-            Serial.println("📁 Creating /manifests directory");
-            // Create by opening a file in the directory (LittleFS creates parent dirs)
             File test = LittleFS.open("/manifests/.keep", "w");
-            if (test) {
-                test.close();
-                LittleFS.remove("/manifests/.keep");
-                Serial.println("✅ /manifests directory created");
-            } else {
-                Serial.println("⚠️ Failed to create /manifests directory");
-            }
+            if (test) { test.close(); LittleFS.remove("/manifests/.keep"); }
         }
-        
-        // Ensure /drivers directory exists
         if (!LittleFS.exists("/drivers")) {
-            Serial.println("📁 Creating /drivers directory");
             File test = LittleFS.open("/drivers/.keep", "w");
-            if (test) {
-                test.close();
-                LittleFS.remove("/drivers/.keep");
-                Serial.println("✅ /drivers directory created");
-            }
+            if (test) { test.close(); LittleFS.remove("/drivers/.keep"); }
         }
-        
-        // Ensure /submissions directory exists
         if (!LittleFS.exists("/submissions")) {
-            Serial.println("📁 Creating /submissions directory");
             File test = LittleFS.open("/submissions/.keep", "w");
-            if (test) {
-                test.close();
-                LittleFS.remove("/submissions/.keep");
-                Serial.println("✅ /submissions directory created");
-            }
+            if (test) { test.close(); LittleFS.remove("/submissions/.keep"); }
         }
         
         // 1) Serve only your JS/CSS folders statically:
@@ -270,15 +227,9 @@ void setup() {
 
   
    
-    Serial.println("Starting TaskManager...");
-    Serial.flush();
     taskManager.begin();
-    Serial.println("TaskManager started");
-    Serial.flush();
     
     // Initialize SensorDataCollector and DataLogger after sensors are initialized
-    Serial.println("Initializing SensorDataCollector...");
-    Serial.flush();
     dataCollector = new SensorDataCollector(
         sensorManager.getFirstPH(),
         sensorManager.getFirstTemperatureSensor(),
@@ -288,14 +239,7 @@ void setup() {
         sensorManager.getFirstTDS(),
         sensorManager.getFirstAtmosphereSensor()
     );
-    Serial.println("SensorDataCollector initialized");
-    Serial.flush();
-    
-    Serial.println("Initializing DataLogger...");
-    Serial.flush();
     dataLogger = new DataLogger(&fileSystem, dataCollector, &server);
-    Serial.println("DataLogger initialized");
-    Serial.flush();
     
     // Auto-detect sensors if config is empty
     DynamicJsonDocument cfg(512);
@@ -326,20 +270,11 @@ void setup() {
     Serial.println("   🌉 Bridge: MQTT ↔ Supabase synchronization");
     Serial.println("   ⚡ WebSocket: Real-time updates on /ws");
     
-    Serial.println("Starting WebSocket service...");
     webSocketService.begin();
-    Serial.println("WebSocket started");
-    
-    Serial.println("Starting Sensor Submission service...");
     sensorSubmissionService.begin();
-    Serial.println("Sensor Submission started");
-    
-    Serial.println("Starting Wireless Sensor Manager...");
     WirelessSensorManager::begin();
-    Serial.println("Wireless Sensor Manager started");
     
-    Serial.println("\n=== SETUP COMPLETE ===");
-    Serial.flush();
+    Serial.println("=== SETUP COMPLETE ===");
 }
 
 void loop() {

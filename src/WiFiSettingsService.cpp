@@ -1,6 +1,7 @@
 #include "WiFiSettingsService.h"
 #include "WiFiCredentials.h"
 #include "WiFiStatus.h"
+#include <LittleFS.h>
 WiFiSettingsService::WiFiSettingsService(AsyncWebServer* server) : _server(server), _lastConnectionAttempt(0) {
   // Disable WiFi persistence and auto-reconnect on startup
   WiFi.persistent(false);
@@ -63,22 +64,43 @@ void WiFiSettingsService::WiFiSettings::toJson(JsonObject& root) const {
 }
 
 void WiFiSettingsService::loadSettings() {
-  _settings.ssid = "9532828 [2Ghz]";    // Your network SSID
-  _settings.password = "0611401627";    // Your network password
-  _settings.hostname = "NeuroGrow";   // Device hostname
-  _settings.staticIPConfig = false;      // Use DHCP
-  Serial.println("Loaded SSID: " + _settings.ssid);
-  Serial.println("Loaded Password: " + _settings.password);
-  // Optional: Add static IP settings if needed later
-  // _settings.localIP = IPAddress(192, 168, 1, 100);
-  // _settings.gatewayIP = IPAddress(192, 168, 1, 1);
-  // _settings.subnetMask = IPAddress(255, 255, 255, 0);
-  // _settings.dnsIP1 = IPAddress(8, 8, 8, 8);
-  // _settings.dnsIP2 = IPAddress(8, 8, 4, 4);  // Load WiFi settings from file (pseudo-code for file operations)
+  // Try to load from LittleFS first
+  if (LittleFS.exists(WIFI_SETTINGS_FILE)) {
+    File file = LittleFS.open(WIFI_SETTINGS_FILE, "r");
+    if (file && file.size() > 0) {
+      DynamicJsonDocument doc(1024);
+      DeserializationError error = deserializeJson(doc, file);
+      file.close();
+      if (!error && doc.is<JsonObject>()) {
+        JsonObject root = doc.as<JsonObject>();
+        _settings.fromJson(root);
+        Serial.println("WiFi settings loaded from file");
+        return;
+      }
+    }
+  }
+  
+  // Default: empty (will trigger AP mode)
+  _settings.ssid = "";
+  _settings.password = "";
+  _settings.hostname = "NeuroGrow";
+  _settings.staticIPConfig = false;
+  Serial.println("No saved WiFi settings - AP mode will start");
 }
 
 void WiFiSettingsService::saveSettings() {
-  // Save WiFi settings to file (pseudo-code for file operations)
+  DynamicJsonDocument doc(1024);
+  JsonObject root = doc.to<JsonObject>();
+  _settings.toJson(root);
+  
+  File file = LittleFS.open(WIFI_SETTINGS_FILE, "w");
+  if (file) {
+    serializeJson(root, file);
+    file.close();
+    Serial.println("WiFi settings saved");
+  } else {
+    Serial.println("Failed to save WiFi settings");
+  }
 }
 
 void WiFiSettingsService::reconfigureWiFiConnection() {
@@ -95,21 +117,50 @@ if (WiFi.status() == WL_CONNECTED) {
 }
 
 void WiFiSettingsService::manageSTA() {
-  Serial.println("manageSTA called");
   if (WiFi.isConnected()) {
-    Serial.println("Already connected");
     return;
   }
+  
+  // If SSID is empty or not configured, start AP mode for setup
   if (_settings.ssid.isEmpty()) {
-    Serial.println("SSID is empty");
+    if (WiFi.getMode() != WIFI_AP) {
+      Serial.println("No WiFi credentials - Starting AP mode for setup");
+      WiFi.mode(WIFI_AP_STA);
+      String apSSID = _settings.hostname.isEmpty() ? "NeuroGrow-Setup" : _settings.hostname + "-Setup";
+      WiFi.softAP(apSSID.c_str(), "setup12345678", 1, 0, 4);  // SSID, password, channel, hidden, max_connections
+      IPAddress apIP(192, 168, 4, 1);
+      WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+      Serial.print("AP Mode: ");
+      Serial.println(WiFi.softAPIP());
+      Serial.print("AP SSID: ");
+      Serial.println(apSSID);
+      Serial.println("Connect to this network and go to http://192.168.4.1");
+    }
     return;
   }
 
-  WiFi.mode(WIFI_STA);
-  Serial.println("Set WiFi mode to STA");
+  // Try to connect to configured WiFi
+  WiFi.mode(WIFI_AP_STA);  // Keep AP available as fallback
   Serial.println("Connecting to WiFi: " + _settings.ssid);
   WiFi.begin(_settings.ssid.c_str(), _settings.password.c_str());
-  Serial.println("WiFi.begin called");
+  
+  // Wait up to 10 seconds for connection
+  unsigned long startTime = millis();
+  while (WiFi.status() != WL_CONNECTED && (millis() - startTime) < 10000) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+  
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("Connected! IP: ");
+    Serial.println(WiFi.localIP());
+    // Disable AP once connected
+    WiFi.mode(WIFI_STA);
+  } else {
+    Serial.println("Connection failed - AP mode still available");
+    // Keep AP mode active
+  }
 }
 
 void WiFiSettingsService::handleSettingsRequest(AsyncWebServerRequest* request) {

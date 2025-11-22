@@ -281,6 +281,7 @@ void loop() {
     esp32React.loop();
     webSocketService.loop();
     WirelessSensorManager::loop();
+    wifiSettingsService.loop();  // Handle WiFi connection/AP mode
     
     // Periodic state save (every 5 minutes)
     static unsigned long lastStateSave = 0;

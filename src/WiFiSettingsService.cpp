@@ -138,18 +138,33 @@ void WiFiSettingsService::manageSTA() {
   
   // If SSID is empty or not configured, start AP mode for setup
   if (_settings.ssid.isEmpty()) {
-    if (WiFi.getMode() != WIFI_AP) {
+    if (WiFi.getMode() != WIFI_AP && WiFi.getMode() != WIFI_AP_STA) {
       Serial.println("No WiFi credentials - Starting AP mode for setup");
       WiFi.mode(WIFI_AP_STA);
+      
       String apSSID = _settings.hostname.isEmpty() ? "NeuroGrow-Setup" : _settings.hostname + "-Setup";
-      WiFi.softAP(apSSID.c_str(), "setup12345678", 1, 0, 4);  // SSID, password, channel, hidden, max_connections
+      bool apStarted = WiFi.softAP(apSSID.c_str(), "setup12345678", 1, 0, 4);  // SSID, password, channel, hidden, max_connections
+      
+      if (!apStarted) {
+        Serial.println("ERROR: Failed to start AP mode!");
+        return;
+      }
+      
       IPAddress apIP(192, 168, 4, 1);
-      WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-      Serial.print("AP Mode: ");
+      IPAddress gateway(192, 168, 4, 1);
+      IPAddress subnet(255, 255, 255, 0);
+      WiFi.softAPConfig(apIP, gateway, subnet);
+      
+      delay(100);  // Give AP time to initialize
+      
+      Serial.print("AP Mode started! IP: ");
       Serial.println(WiFi.softAPIP());
       Serial.print("AP SSID: ");
       Serial.println(apSSID);
+      Serial.print("AP Password: setup12345678");
+      Serial.println();
       Serial.println("Connect to this network and go to http://192.168.4.1");
+      Serial.flush();
     }
     return;
   }

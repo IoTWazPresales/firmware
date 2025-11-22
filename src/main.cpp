@@ -226,7 +226,7 @@ void setup() {
         
         request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Device disconnected and credentials cleared\"}");
     });
-    // Fallback for 404: if it’s an API route, return 404; else serve index.html for SPA routing
+    // Fallback for 404: if it's an API route, return 404; else serve index.html for SPA routing
     server.onNotFound([](AsyncWebServerRequest *request){
         String url = request->url();
         if (url.startsWith("/api/")) {
@@ -237,7 +237,14 @@ void setup() {
         }
     });
 
-  
+    // Start WiFi Settings Service (handles AP mode and STA connection)
+    // This will create AP mode if needed and start the server
+    wifiSettingsService.begin();
+    
+    // Start web server (needed for AP mode)
+    server.begin();
+    Serial.println("Web server started on port 80");
+    Serial.flush();
    
     taskManager.begin();
     

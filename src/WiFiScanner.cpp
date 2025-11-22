@@ -30,7 +30,6 @@ void WiFiScanner::scanNetworks(AsyncWebServerRequest* request) {
   int scanResult = WiFi.scanComplete();
   if (scanResult == -1) {
     // Scan already in progress, return 202 (Accepted)
-    _isScanning = false;
     request->send(202, "application/json", "{\"status\":\"scanning\",\"message\":\"Scan already in progress\"}");
     return;
   }

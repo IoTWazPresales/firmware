@@ -3,14 +3,16 @@
 #include "WiFiStatus.h"
 #include <LittleFS.h>
 WiFiSettingsService::WiFiSettingsService(AsyncWebServer* server) : _server(server), _lastConnectionAttempt(0) {
-  // Don't initialize WiFi in constructor - do it in begin() after Serial is ready
+  // Don't do anything in constructor - all initialization in begin()
+  // Route registration moved to begin() to avoid issues during global construction
+}
+
+void WiFiSettingsService::begin() {
   // Set up HTTP route to handle WiFi settings requests
   _server->on(WIFI_SETTINGS_SERVICE_PATH, HTTP_GET, [this](AsyncWebServerRequest* request) {
     handleSettingsRequest(request);
   });
-}
-
-void WiFiSettingsService::begin() {
+  
   // Initialize WiFi here (after Serial is ready)
   WiFi.persistent(false);
   WiFi.setAutoReconnect(false);

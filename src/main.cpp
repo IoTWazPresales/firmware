@@ -237,15 +237,14 @@ void setup() {
         }
     });
 
-    // Start WiFi Settings Service (handles AP mode and STA connection)
-    // This will create AP mode if needed
-    Serial.println("Starting WiFi Settings Service...");
-    Serial.flush();
-    wifiSettingsService.begin();
-    Serial.println("WiFi Settings Service started");
-    Serial.flush();
+    // TEMPORARILY DISABLED: WiFi Settings Service
+    // Serial.println("Starting WiFi Settings Service...");
+    // Serial.flush();
+    // wifiSettingsService.begin();
+    // Serial.println("WiFi Settings Service started");
+    // Serial.flush();
     
-    // Start web server (needed for AP mode)
+    // Start web server
     Serial.println("Starting web server...");
     Serial.flush();
     server.begin();
@@ -306,7 +305,7 @@ void loop() {
     esp32React.loop();
     webSocketService.loop();
     WirelessSensorManager::loop();
-    wifiSettingsService.loop();  // Handle WiFi connection/AP mode
+    // TEMPORARILY DISABLED: wifiSettingsService.loop();
     
     // Periodic state save (every 5 minutes)
     static unsigned long lastStateSave = 0;

@@ -1,11 +1,12 @@
 import { FC, useContext, useEffect, useState } from 'react';
 import { ValidateFieldsError } from 'async-validator';
 
-import { Avatar, Button, Checkbox, IconButton, List, ListItem, ListItemAvatar, ListItemSecondaryAction, ListItemText } from '@mui/material';
+import { Avatar, Button, Checkbox, IconButton, List, ListItem, ListItemAvatar, ListItemSecondaryAction, ListItemText, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Alert } from '@mui/material';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import LockIcon from '@mui/icons-material/Lock';
+import InfoIcon from '@mui/icons-material/Info';
 import WiFiService from "../../api/wifi";
 import * as WiFiApi from "../../api/wifi";
 import { WiFiSettings } from '../../types';
@@ -27,6 +28,8 @@ const WiFiSettingsForm: FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<ValidateFieldsError>();
   const [initialized, setInitialized] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [savedSSID, setSavedSSID] = useState<string>('');
   const validateAndSubmit = async () => {
     if (!data) {
       setErrorMessage('No data to save');
@@ -47,9 +50,10 @@ const WiFiSettingsForm: FC = () => {
       // Call the save function
       await saveWiFiSettings(data);
       
-      // Show success message
+      // Show success dialog with instructions
+      setSavedSSID(data.ssid);
+      setShowSuccessDialog(true);
       setErrorMessage('');
-      // Optionally show a success notification here
       
     } catch (error: any) {
       console.error('Error saving WiFi settings:', error);
@@ -115,6 +119,9 @@ const WiFiSettingsForm: FC = () => {
 
     return (
       <SectionContent title="Wifi Configuration">
+        <Alert severity="info" icon={<InfoIcon />} sx={{ mb: 2 }}>
+          <strong>After saving:</strong> The device will connect to your WiFi network. You'll need to disconnect from "NeuroGrow-Setup" and connect to the same network, then access the device at <strong>http://neurogrow.local</strong>
+        </Alert>
         {
           selectedNetwork ?
             <List>
@@ -240,6 +247,27 @@ const WiFiSettingsForm: FC = () => {
             Save
           </Button>
         </ButtonRow>
+        
+        <Dialog open={showSuccessDialog} onClose={() => setShowSuccessDialog(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>WiFi Settings Saved</DialogTitle>
+          <DialogContent>
+            <DialogContentText component="div">
+              <p><strong>The device is now connecting to "{savedSSID}"...</strong></p>
+              <p>Follow these steps to reconnect:</p>
+              <ol style={{ marginLeft: '20px', paddingLeft: '20px' }}>
+                <li>Disconnect from <strong>"NeuroGrow-Setup"</strong> WiFi network on your device</li>
+                <li>Connect to <strong>"{savedSSID}"</strong> on your device</li>
+                <li>Access the device at: <strong>http://neurogrow.local</strong></li>
+                <li>Or check your router's connected devices list for the IP address</li>
+              </ol>
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowSuccessDialog(false)} color="primary" variant="contained">
+              Got it
+            </Button>
+          </DialogActions>
+        </Dialog>
         </SectionContent>
     );
 

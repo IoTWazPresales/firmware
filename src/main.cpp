@@ -248,7 +248,11 @@ void setup() {
     Serial.flush();
     WiFi.mode(WIFI_AP_STA);
     delay(100);
-    WiFi.softAP("NeuroGrow-Setup", "setup12345678", 1, 0, 4);
+    // Create AP name with MAC address identifier (last 4 digits)
+    String macAddr = WiFi.macAddress();
+    macAddr.replace(":", "");
+    String apName = "NeuroGrow-" + macAddr.substring(macAddr.length() - 4);
+    WiFi.softAP(apName.c_str(), "setup12345678", 1, 0, 4);
     IPAddress apIP(192, 168, 4, 1);
     WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
     delay(1000);  // Give TCP/IP stack time to initialize

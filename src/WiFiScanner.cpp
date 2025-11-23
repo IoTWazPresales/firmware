@@ -153,8 +153,14 @@ void WiFiScanner::listNetworks(AsyncWebServerRequest* request) {
     response->setLength();
     request->send(response);
   } else if (numNetworks == -1) {
-    // Scan in progress
-    request->send(202, "application/json", "{\"status\":\"scanning\",\"message\":\"Scan in progress. AP will restart when complete.\"}");
+    // Scan in progress - return empty networks array so frontend can keep polling
+    AsyncJsonResponse* response = new AsyncJsonResponse(false, 256);
+    JsonObject root = response->getRoot();
+    root["count"] = 0;
+    root["scanning"] = true;
+    JsonArray networks = root.createNestedArray("networks");
+    response->setLength();
+    request->send(response);
   } else if (numNetworks == 0) {
     // Scan completed but no networks found
     AsyncJsonResponse* response = new AsyncJsonResponse(false, 256);

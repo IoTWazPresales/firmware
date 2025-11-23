@@ -42,14 +42,39 @@ const WiFiNetworkScanner: FC = () => {
     try {
       const response = await WiFiService.listNetworks();
       if (response && response.networks) {
+        // Check if scan is still in progress (networks array exists but might be empty)
+        if ((response as any).scanning === true) {
+          // Scan still in progress, poll again
+          pollCount.current++;
+          if (pollCount.current < NUM_POLLS) {
+            setTimeout(pollNetworkList, POLLING_FREQUENCY);
+          } else {
+            finishedWithError('Scan timeout - please try again');
+          }
+          return;
+        }
+        
         // Sorting network list by signal strength (RSSI)
         response.networks.sort((network1, network2) => network2.rssi - network1.rssi);
         setNetworkList(response);
+        pollCount.current = 0;  // Reset poll count on success
       } else {
-        finishedWithError("No networks found.");
+        // No networks found - might be scan in progress or truly no networks
+        pollCount.current++;
+        if (pollCount.current < NUM_POLLS) {
+          setTimeout(pollNetworkList, POLLING_FREQUENCY);
+        } else {
+          finishedWithError("No networks found.");
+        }
       }
     } catch (error: any) {
-      finishedWithError('Error fetching network list.');
+      pollCount.current++;
+      if (pollCount.current < NUM_POLLS) {
+        // Retry on error (might be network issue)
+        setTimeout(pollNetworkList, POLLING_FREQUENCY);
+      } else {
+        finishedWithError('Error fetching network list.');
+      }
     }
   }, [finishedWithError]);
 

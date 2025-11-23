@@ -8,10 +8,8 @@ DriverPackageService::DriverPackageService(AsyncWebServer* server,
                                            DriverPackageManager* manager,
                                            fs::FS* fs)
     : _manager(manager), _fs(fs) {
-  if (!_fs->exists("/drivers")) {
-    _fs->mkdir("/drivers");
-  }
-
+  // Don't access filesystem in constructor - do it in begin()
+  
   server->on("/api/driver-packages", HTTP_GET, [this](AsyncWebServerRequest* request) {
     AsyncJsonResponse* response = new AsyncJsonResponse;
     JsonObject root = response->getRoot();
@@ -39,6 +37,13 @@ DriverPackageService::DriverPackageService(AsyncWebServer* server,
                     uint8_t* data, size_t len, bool final) {
                handleUpload(request, filename, index, data, len, final);
              });
+}
+
+void DriverPackageService::begin() {
+  // Initialize filesystem-dependent operations (called after LittleFS is mounted)
+  if (_fs && !_fs->exists("/drivers")) {
+    _fs->mkdir("/drivers");
+  }
 }
 
 void DriverPackageService::handleUpload(AsyncWebServerRequest* request,

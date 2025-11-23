@@ -35,13 +35,24 @@ void ErrorRecovery::logError(ErrorSeverity severity, const String& component, co
 
 void ErrorRecovery::saveCriticalState() {
   // Save critical configuration to Preferences for recovery
+  // Only save if Preferences is safe to use (after setup() has run)
+  if (millis() == 0) {
+    // Too early - millis() not initialized yet, skip save
+    return;
+  }
+  
   _prefs.begin("recovery", false);
   _prefs.putULong("last_save", millis());
   _prefs.putUInt("boot_count", _prefs.getUInt("boot_count", 0) + 1);
   _prefs.end();
   
   // Save to LittleFS as backup (only if LittleFS is mounted)
-  if (LittleFS.begin(false)) {  // Try to mount if not already mounted (false = don't format)
+  // Check if LittleFS is already mounted by trying to open a file
+  File testFile = LittleFS.open("/.test", "r");
+  bool littlefsMounted = (testFile);
+  if (testFile) testFile.close();
+  
+  if (littlefsMounted) {
     DynamicJsonDocument doc(512);
     doc["last_save"] = millis();
     _prefs.begin("recovery", true);

@@ -49,6 +49,7 @@ class WiFiSettingsService {
   void reconfigureWiFiConnection();
   void manageSTA();
   void handleSettingsRequest(AsyncWebServerRequest* request);
+  void handleSaveSettingsRequest(AsyncWebServerRequest* request, uint8_t* data, size_t len);
 };
 
 #endif  // end WiFiSettingsService_h

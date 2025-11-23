@@ -122,18 +122,18 @@ void SensorManager::loadConfig() {
 
 void SensorManager::begin() {
     Wire.begin(I2C_SDA, I2C_SCL);
-    loadManifests(); // Load manifests first
-    loadConfig(); // Then load config (may be empty on first boot)
+    loadManifests();
+    loadConfig();
 
-    for (auto *p: _dht11Sensors)      p->begin();
-    for (auto *p: _tempSensors)       p->begin();
-    for (auto *p: _tdsSensors)        p->begin();
-    if (_rtcSensor)                   _rtcSensor->begin();
-    for (auto *p: _phSensors)         p->begin();
-    for (auto *p: _moistureSensors)   p->begin();
-    for (auto *p: _atmosphereSensors) p->begin();
-    for (auto *p: _spectralSensors)   p->begin();
-    for (auto *p: _npkSensors)        p->begin();
+    for (auto *p: _dht11Sensors)      { if (p) p->begin(); }
+    for (auto *p: _tempSensors)       { if (p) p->begin(); }
+    for (auto *p: _tdsSensors)        { if (p) p->begin(); }
+    if (_rtcSensor)                   { _rtcSensor->begin(); }
+    for (auto *p: _phSensors)         { if (p) p->begin(); }
+    for (auto *p: _moistureSensors)   { if (p) p->begin(); }
+    for (auto *p: _atmosphereSensors) { if (p) p->begin(); }
+    for (auto *p: _spectralSensors)   { if (p) p->begin(); }
+    for (auto *p: _npkSensors)        { if (p) p->begin(); }
 
     registerCapabilities();
     updateSamples();

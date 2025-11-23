@@ -43,6 +43,8 @@
 #include "RateLimitMiddleware.h"
 #include "ErrorRecovery.h"
 #include "NetworkResilience.h"
+#include "SensorSubmissionService.h"
+#include "WirelessSensorManager.h"
 
 
 SupabaseConnector supabaseConnector;
@@ -69,22 +71,16 @@ WiFiScanner            wifiScanner(&server);
 SystemStatus           systemStatus(&server);
 FactoryResetService    factoryResetService(&server, &LittleFS);
 SensorEndpoints        endpoints(&server, &sensorManager,&supabaseConnector);
-SensorDataCollector    dataCollector(
-    sensorManager.getFirstPH(),
-    sensorManager.getFirstTemperatureSensor(),
-    sensorManager.getFirstDHT11(),
-    sensorManager.getFirstMoistureSensor(),
-    sensorManager.getFirstRTC(),
-    sensorManager.getFirstTDS(),
-    sensorManager.getFirstAtmosphereSensor()
-);
-DataLogger             dataLogger(&fileSystem, &dataCollector, &server);
+// dataCollector will be initialized in setup() after sensorManager.begin()
+SensorDataCollector*   dataCollector = nullptr;
+DataLogger*            dataLogger = nullptr;
 OTAHandler             otaHandler;
 TelemetryService       telemetryService(&server);
 DriverPackageManager   driverPackageManager(&LittleFS);
 DriverPackageService   driverPackageService(&server, &driverPackageManager, &LittleFS);
 ManifestService        manifestService(&server, &sensorManager);
 WebSocketService       webSocketService(&server, &sensorManager);
+SensorSubmissionService sensorSubmissionService(&server);
 
 // Rate limiting (60 requests per minute per IP)
 RateLimiter            apiRateLimiter(60, 60000);
@@ -104,30 +100,24 @@ void clearSupabaseCredentials() {
 }
 void setup() {
     Serial.begin(115200);
-    Serial.setDebugOutput(true);
-    delay(1000);
+    delay(2000);
+    Serial.println("Boot");
+    Serial.flush();
     
     Logger::setLevel(LogLevel::INFO);
-    Logger::info("🚀 Firmware starting...");
     
-    // Restore critical state
-    ErrorRecovery::restoreCriticalState();
+    esp_task_wdt_init(30, /* panic */ false);
     
-    // Save initial state
-    ErrorRecovery::saveCriticalState();
-    
-      // ─── TASK WATCHDOG ──────────────────────────────────────────────
-    // 10-second timeout, panic=true will abort() on timeout
-    esp_task_wdt_init(10, /* panic */ true);
-    esp32React.begin();
-    
-
-    // ─── Mount LittleFS ───────────────────────────────────────────
     bool littlefsMounted = LittleFS.begin(true);
     if (!littlefsMounted) {
-        Serial.println("LittleFS Mount Failed");
-    } else {
-        Serial.println("LittleFS Mounted Successfully");
+        Serial.println("FS fail");
+        Serial.flush();
+    }
+    
+    // ErrorRecovery needs LittleFS to be mounted before accessing it
+    ErrorRecovery::restoreCriticalState();
+    ErrorRecovery::saveCriticalState();
+    // esp32React.begin() is called later after LittleFS is mounted (Preferences needs it)
         
         if (!LittleFS.exists("/config.json")) {
             fileSystem.writeFile(LittleFS, "/config.json", "{}");
@@ -143,43 +133,44 @@ void setup() {
             fileSystem.writeFile(LittleFS, "/sensor_data.json", "{}");
         }
         
-        // Ensure /manifests directory exists
+        // Ensure directories exist
         if (!LittleFS.exists("/manifests")) {
-            Serial.println("📁 Creating /manifests directory");
-            // Create by opening a file in the directory (LittleFS creates parent dirs)
             File test = LittleFS.open("/manifests/.keep", "w");
-            if (test) {
-                test.close();
-                LittleFS.remove("/manifests/.keep");
-                Serial.println("✅ /manifests directory created");
-            } else {
-                Serial.println("⚠️ Failed to create /manifests directory");
-            }
+            if (test) { test.close(); LittleFS.remove("/manifests/.keep"); }
         }
-        
-        // Ensure /drivers directory exists
         if (!LittleFS.exists("/drivers")) {
-            Serial.println("📁 Creating /drivers directory");
             File test = LittleFS.open("/drivers/.keep", "w");
-            if (test) {
-                test.close();
-                LittleFS.remove("/drivers/.keep");
-                Serial.println("✅ /drivers directory created");
-            }
+            if (test) { test.close(); LittleFS.remove("/drivers/.keep"); }
+        }
+        if (!LittleFS.exists("/submissions")) {
+            File test = LittleFS.open("/submissions/.keep", "w");
+            if (test) { test.close(); LittleFS.remove("/submissions/.keep"); }
         }
         
-        // 1) Serve only your JS/CSS folders statically:
-        server.serveStatic("/static/js/",  LittleFS, "/static/js/");
-        server.serveStatic("/static/css/", LittleFS, "/static/css/");
+        // Serve static files - map /static/* requests to root files
+        // The build process puts files in root, but browser requests /static/*
+        // Map /static/ to root of LittleFS so /static/main.b0b7b627.js -> /main.b0b7b627.js
+        server.serveStatic("/static/", LittleFS, "/");
+        
+        // Serve root-level files directly
+        server.serveStatic("/favicon.ico", LittleFS, "/favicon.ico");
+        server.serveStatic("/manifest.json", LittleFS, "/manifest.json");
+        server.serveStatic("/manifest12.json", LittleFS, "/manifest12.json");
+        server.serveStatic("/robots.txt", LittleFS, "/robots.txt");
+        server.serveStatic("/logo192.png", LittleFS, "/logo192.png");
+        server.serveStatic("/FissionLogo_SkyBlue.png", LittleFS, "/FissionLogo_SkyBlue.png");
+        
+        // Fallback: serve JS/CSS files from root if requested from root (without /static/)
+        server.serveStatic("/*.js", LittleFS, "/", "text/javascript");
+        server.serveStatic("/*.css", LittleFS, "/", "text/css");
+        server.serveStatic("/*.png", LittleFS, "/", "image/png");
+        server.serveStatic("/*.jpg", LittleFS, "/", "image/jpeg");
+        server.serveStatic("/*.ico", LittleFS, "/", "image/x-icon");
 
         if (!LittleFS.exists("/index.html")) {
             Serial.println("⚠️ index.html missing from filesystem");
         }
-    }
-      
-     
-      delay(1000);
-       
+    
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-device-api-key, X-Device-Api-Key");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -233,7 +224,11 @@ void setup() {
         
         request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Device disconnected and credentials cleared\"}");
     });
-    // Fallback for 404: if it’s an API route, return 404; else serve index.html for SPA routing
+    
+    // ESP32React handles CORS headers, but we need to call begin() after LittleFS is mounted
+    esp32React.begin();
+    
+    // Fallback for 404: if it's an API route, return 404; else serve index.html for SPA routing
     server.onNotFound([](AsyncWebServerRequest *request){
         String url = request->url();
         if (url.startsWith("/api/")) {
@@ -244,9 +239,36 @@ void setup() {
         }
     });
 
-  
+    WiFi.mode(WIFI_AP_STA);
+    delay(100);
+    WiFi.softAP("NeuroGrow-Setup", "setup12345678", 1, 0, 4);
+    delay(500);
+    IPAddress apIP(192, 168, 4, 1);
+    WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+    delay(500);
+    
+    // Initialize WiFiStatus event handlers after WiFi is initialized
+    wifiStatus.begin();
+
+    wifiScanner.begin();
+    wifiScanner.preScanNetworks();
+    
+    wifiSettingsService.begin();
+    
+    server.begin();
    
     taskManager.begin();
+    
+    dataCollector = new SensorDataCollector(
+        sensorManager.getFirstPH(),
+        sensorManager.getFirstTemperatureSensor(),
+        sensorManager.getFirstDHT11(),
+        sensorManager.getFirstMoistureSensor(),
+        sensorManager.getFirstRTC(),
+        sensorManager.getFirstTDS(),
+        sensorManager.getFirstAtmosphereSensor()
+    );
+    dataLogger = new DataLogger(&fileSystem, dataCollector, &server);
     
     // Auto-detect sensors if config is empty
     DynamicJsonDocument cfg(512);
@@ -259,7 +281,6 @@ void setup() {
     }
     
     if (configEmpty) {
-        Serial.println("🔍 Config empty, attempting auto-detection...");
         try {
             sensorManager.autoDetectSensors(&scanner);
             sensorManager.loadConfig(); // Reload after auto-detection
@@ -268,21 +289,21 @@ void setup() {
         }
     }
     
-    Serial.println("=== HYBRID DEVICE READY ===");
-    Serial.println("Device MAC: " + WiFi.macAddress());
-    Serial.println("Local IP: " + WiFi.localIP().toString());
-    Serial.println("💡 Communication modes:");
-    Serial.println("   📡 HTTP: Device registration & fallback");
-    Serial.println("   🔗 MQTT: Real-time sensor data & relay control");
-    Serial.println("   🌉 Bridge: MQTT ↔ Supabase synchronization");
-    Serial.println("   ⚡ WebSocket: Real-time updates on /ws");
-    
     webSocketService.begin();
+    sensorSubmissionService.begin();
+    driverPackageService.begin();  // Initialize after LittleFS is mounted
+    scannerEndpoints.begin();  // Initialize routes after LittleFS is mounted
+    WirelessSensorManager::begin();
+    
+    Serial.println("Ready");
+    Serial.flush();
 }
 
 void loop() {
     esp32React.loop();
     webSocketService.loop();
+    WirelessSensorManager::loop();
+    wifiSettingsService.loop();  // Handle WiFi connection/AP mode
     
     // Periodic state save (every 5 minutes)
     static unsigned long lastStateSave = 0;

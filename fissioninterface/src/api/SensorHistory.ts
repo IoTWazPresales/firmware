@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axiosInstance from './axiosInstance';
 import { API_CONFIG } from './apiConfig';
 
 export interface SensorLogEntry {
@@ -14,7 +14,7 @@ export interface SensorLogEntry {
 class SensorHistory {
     public async getSensorLogs(): Promise<SensorLogEntry[]> {
         try {
-            const response = await axios.get<SensorLogEntry[]>(API_CONFIG.SENSOR.LOGS);
+            const response = await axiosInstance.get<SensorLogEntry[]>(API_CONFIG.SENSOR.LOGS);
             console.log('Sensor Logs:', response.data);
             return response.data;
         } catch (error) {

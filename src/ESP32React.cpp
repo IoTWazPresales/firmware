@@ -4,9 +4,16 @@
 #include <Preferences.h>
 
 ESP32React::ESP32React(AsyncWebServer* server) {
-  // Must do this before server.begin()
+  // Don't access Preferences in constructor - do it in begin()
+  // Just set up routes for now
+  server->on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
+    request->send(200);
+  });
+}
+
+void ESP32React::begin() {
+  // Set up CORS headers after Preferences is safe to use
   auto& headers = DefaultHeaders::Instance();
-  // CORS: Allow specific origins (configurable via Preferences)
   Preferences prefs;
   prefs.begin("cors", true);
   String allowedOrigin = prefs.getString("origin", "*");
@@ -15,13 +22,5 @@ ESP32React::ESP32React(AsyncWebServer* server) {
   headers.addHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS,PUT,DELETE");
   headers.addHeader("Access-Control-Allow-Headers",
                     "Content-Type,Authorization,x-device-api-key,X-Device-Api-Key");
-
-  // catch all OPTIONS pre-flights
-  server->on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
-    // no body, defaults get injected automatically
-    request->send(200);
-  });
 }
-
-void ESP32React::begin() {}
 void ESP32React::loop()  {}

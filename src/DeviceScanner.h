@@ -25,10 +25,15 @@ public:
     void scanAnalogPins();
     void scanDigitalPins();
     void scanUARTInterfaces();
+    
+    // Enhanced signature collection
+    void collectUnknownSensorSignatures();
+    String getUnknownSensorSignatures();
 
 private:
     AsyncWebServer*         _server;
     StaticJsonDocument<4096> scanResults;
+    StaticJsonDocument<2048> unknownSignatures;
 };
 
 #endif // DEVICESCANNER_H

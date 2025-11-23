@@ -12,7 +12,7 @@ import { extractErrorMessage } from '../../utils';
 
 import WiFiNetworkSelector from './WiFiNetworkSelector';
 
-const NUM_POLLS = 10;
+const NUM_POLLS = 30;  // Increased to allow for longer scan times (15 seconds total)
 const POLLING_FREQUENCY = 500;
 
 const compareNetworks = (network1: WiFiNetwork, network2: WiFiNetwork) => {
@@ -41,15 +41,54 @@ const WiFiNetworkScanner: FC = () => {
   const pollNetworkList = useCallback(async () => {
     try {
       const response = await WiFiService.listNetworks();
-      if (response && response.networks) {
+      
+      // Check if scan is still in progress
+      if ((response as any).scanning === true) {
+        // Scan still in progress, poll again
+        pollCount.current++;
+        if (pollCount.current < NUM_POLLS) {
+          setTimeout(pollNetworkList, POLLING_FREQUENCY);
+        } else {
+          finishedWithError('Scan timeout - scan is taking longer than expected. Please try clicking "Scan again".');
+        }
+        return;
+      }
+      
+      // Check if we have a message (no scan results available)
+      if ((response as any).message) {
+        // No scan results - show empty list with message
+        setNetworkList({ networks: [] });
+        setErrorMessage((response as any).message);
+        pollCount.current = 0;
+        return;
+      }
+      
+      // We have results (even if empty array)
+      if (response && response.networks !== undefined) {
         // Sorting network list by signal strength (RSSI)
-        response.networks.sort((network1, network2) => network2.rssi - network1.rssi);
+        if (response.networks.length > 0) {
+          response.networks.sort((network1, network2) => network2.rssi - network1.rssi);
+        }
         setNetworkList(response);
+        setErrorMessage(undefined);  // Clear any previous errors
+        pollCount.current = 0;  // Reset poll count on success
       } else {
-        finishedWithError("No networks found.");
+        // Unexpected response format
+        pollCount.current++;
+        if (pollCount.current < NUM_POLLS) {
+          setTimeout(pollNetworkList, POLLING_FREQUENCY);
+        } else {
+          finishedWithError("Unexpected response from device. Please try again.");
+        }
       }
     } catch (error: any) {
-      finishedWithError('Error fetching network list.');
+      pollCount.current++;
+      if (pollCount.current < NUM_POLLS) {
+        // Retry on error (might be network issue)
+        setTimeout(pollNetworkList, POLLING_FREQUENCY);
+      } else {
+        finishedWithError('Error fetching network list. Please ensure the device is connected.');
+      }
     }
   }, [finishedWithError]);
 
@@ -67,14 +106,27 @@ const WiFiNetworkScanner: FC = () => {
   }, [pollNetworkList, finishedWithError]);
 
   useEffect(() => {
-    startNetworkScan();  // Start network scan when component mounts
-  }, [startNetworkScan]);
+    // On mount, try to get existing scan results first (from pre-scan)
+    // Don't trigger a new scan immediately - check if results already exist
+    // This prevents disconnection when opening the tab
+    pollNetworkList();
+  }, []); // Empty deps - only run once on mount
  
 
   const renderNetworkScanner = () => {
     if (!networkList) {
-      return (<FormLoader message="Scanning&hellip;" errorMessage={errorMessage} />);
+      return (<FormLoader message="Checking for networks&hellip;" errorMessage={errorMessage} />);
     }
+    
+    // Show message if no networks found
+    if (networkList.networks.length === 0 && errorMessage) {
+      return (
+        <div style={{ padding: '16px', textAlign: 'center', color: 'text.secondary' }}>
+          <p>{errorMessage}</p>
+        </div>
+      );
+    }
+    
     return (
       <WiFiNetworkSelector networkList={networkList} />
     );

@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, Typography, Box, Switch, Skeleton, Badge } from '@mui/material';
 import WarningIcon from '@mui/icons-material/Warning';
 import ChartContainer from './ChartContainer';
+import { useOptionalThemeMode } from '../contexts/ThemeContext';
 
 interface SensorCardProps {
   title: string;
@@ -32,6 +33,9 @@ const SensorCard: React.FC<SensorCardProps> = ({
   healthColor,
   onClick,
 }) => {
+  const themeContext = useOptionalThemeMode();
+  const isDashboardTheme = themeContext?.themeMode === 'dashboard';
+  
   const showThresholds = minThreshold !== undefined && maxThreshold !== undefined;
   const resolvedHealthColor =
     healthColor && progressValue !== undefined ? healthColor(progressValue) : 'primary';
@@ -66,17 +70,34 @@ const SensorCard: React.FC<SensorCardProps> = ({
           maxWidth: 350,
           padding: 2,
           borderRadius: 2,
-          boxShadow: isAlert ? 6 : 2,
-          border: isAlert ? '2px solid' : 'none',
-          borderColor: isAlert ? 'error.main' : 'transparent',
+          boxShadow: isAlert 
+            ? (isDashboardTheme 
+                ? '0 0 15px rgba(239, 68, 68, 0.4), 0 4px 6px rgba(0, 0, 0, 0.3)' 
+                : 6)
+            : (isDashboardTheme 
+                ? '0 0 10px rgba(0, 212, 255, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2)' 
+                : 2),
+          border: isAlert ? '2px solid' : (isDashboardTheme ? '1px solid' : 'none'),
+          borderColor: isAlert 
+            ? 'error.main' 
+            : (isDashboardTheme ? 'rgba(0, 212, 255, 0.5)' : 'transparent'),
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
+          transition: 'transform 0.2s, box-shadow 0.3s, border-color 0.3s',
           cursor: onClick ? 'pointer' : 'default',
           '&:hover': {
             transform: 'translateY(-4px)',
-            boxShadow: isAlert ? 8 : 4,
+            boxShadow: isAlert 
+              ? (isDashboardTheme 
+                  ? '0 0 25px rgba(239, 68, 68, 0.6), 0 6px 8px rgba(0, 0, 0, 0.4)' 
+                  : 8)
+              : (isDashboardTheme 
+                  ? '0 0 20px rgba(0, 212, 255, 0.5), 0 4px 8px rgba(0, 0, 0, 0.3)' 
+                  : 4),
+            borderColor: isAlert 
+              ? 'error.main' 
+              : (isDashboardTheme ? 'rgba(0, 255, 255, 0.8)' : 'transparent'),
           },
         }}
         onClick={onClick}
@@ -99,7 +120,16 @@ const SensorCard: React.FC<SensorCardProps> = ({
             <Skeleton variant="text" width="40%" sx={{ mx: 'auto' }} />
           </Box>
         ) : value !== null ? (
-          <Typography variant="h4" color="primary" sx={{ fontWeight: 600 }}>
+          <Typography 
+            variant="h4" 
+            color="primary" 
+            sx={{ 
+              fontWeight: 600,
+              ...(isDashboardTheme && {
+                textShadow: '0 0 10px rgba(0, 212, 255, 0.5)',
+              }),
+            }}
+          >
             {`${Number(value).toFixed(2)} ${unit}`}
           </Typography>
         ) : (

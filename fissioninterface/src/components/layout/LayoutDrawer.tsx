@@ -5,6 +5,7 @@ import { Box, Divider, Drawer, Toolbar, Typography } from '@mui/material';
 
 import LayoutMenu from './LayoutMenu';
 import { DRAWER_WIDTH } from './Layout';
+import { useOptionalThemeMode } from '../../contexts/ThemeContext';
 
 interface LayoutDrawerProps {
   mobileOpen: boolean;
@@ -12,13 +13,25 @@ interface LayoutDrawerProps {
 }
 
 const LayoutDrawer: FC<LayoutDrawerProps> = ({ mobileOpen, onClose }) => {
+  const themeContext = useOptionalThemeMode();
+  const isDashboardTheme = themeContext?.themeMode === 'dashboard';
 
   const drawer = (
     <>
       <Toolbar disableGutters>
         <Box display="flex" alignItems="center" px={2}>
           {/* <LayoutDrawerLogo src="/app/icon.png" alt={PROJECT_NAME} /> */}
-          <Typography variant="h6" color="textPrimary">
+          <Typography 
+            variant="h6" 
+            color="textPrimary"
+            sx={{
+              ...(isDashboardTheme && {
+                color: '#00D4FF',
+                fontWeight: 700,
+                textShadow: '0 0 10px rgba(0, 212, 255, 0.5)',
+              }),
+            }}
+          >
             Command Centre
           </Typography>
         </Box>

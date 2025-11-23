@@ -3,6 +3,7 @@ import { SnackbarProvider } from 'notistack';
 import { IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { ConnectionProvider } from './contexts/ConnectionContext';
 import CustomTheme from './CustomTheme';
 import AppRouting from './AppRouting';
 import { LoadingSpinner } from './components';
@@ -32,21 +33,23 @@ const App: FC = () => {
 
   return (
     <ThemeProvider>
-      <CustomTheme>
-        <SnackbarProvider
-          maxSnack={3}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-          ref={notistackRef}
-          action={(key) => (
-            <IconButton onClick={onClickDismiss(key)} size="small">
-              <CloseIcon />
-            </IconButton>
-          )}
-        >
-          {/* Show Loading Spinner until app is ready */}
-          {!isAppReady ? <LoadingSpinner /> : <AppRouting />}
-        </SnackbarProvider>
-      </CustomTheme>
+      <ConnectionProvider>
+        <CustomTheme>
+          <SnackbarProvider
+            maxSnack={3}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            ref={notistackRef}
+            action={(key) => (
+              <IconButton onClick={onClickDismiss(key)} size="small">
+                <CloseIcon />
+              </IconButton>
+            )}
+          >
+            {/* Show Loading Spinner until app is ready */}
+            {!isAppReady ? <LoadingSpinner /> : <AppRouting />}
+          </SnackbarProvider>
+        </CustomTheme>
+      </ConnectionProvider>
     </ThemeProvider>
   );
 };

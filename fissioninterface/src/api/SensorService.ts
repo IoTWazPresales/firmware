@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axiosInstance from './axiosInstance';
 import { API_CONFIG } from './apiConfig';
 import { SensorResponse, SensorValues } from '../types/sensors';
 
@@ -6,7 +6,7 @@ class SensorService {
     // Method to fetch sensor data
     public async getSensorData(): Promise<SensorResponse> {
         try {
-            const response = await axios.get(API_CONFIG.SENSOR.DATA);
+            const response = await axiosInstance.get(API_CONFIG.SENSOR.DATA);
             const rawData = response.data;
 
             if (rawData && typeof rawData === 'object' && 'values' in rawData && 'meta' in rawData) {

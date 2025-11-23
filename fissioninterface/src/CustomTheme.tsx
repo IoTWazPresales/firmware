@@ -93,16 +93,16 @@ const dashboardTheme: ThemeOptions = {
       paper: "#1e293b", // Slightly lighter cards
     },
     primary: {
-      main: "#6366f1", // Neon blue
-      light: "#818cf8",
-      dark: "#4f46e5",
-      contrastText: "#fff",
+      main: "#00D4FF", // Bright neon cyan (Star Citizen style)
+      light: "#00FFFF", // Brighter for hovers
+      dark: "#0099CC", // Darker for pressed states
+      contrastText: "#000", // Black text for better readability on bright neon
     },
     secondary: {
-      main: "#06b6d4", // Neon cyan
-      light: "#67e8f9",
-      dark: "#0891b2",
-      contrastText: "#fff",
+      main: "#00BFFF", // Slightly deeper neon cyan
+      light: "#00D4FF",
+      dark: "#0080CC",
+      contrastText: "#000",
     },
     info: {
       main: cyan[400],
@@ -117,8 +117,8 @@ const dashboardTheme: ThemeOptions = {
       main: green[400],
     },
     sparklines: {
-      main: "#06b6d4", // Cyan color for sparklines (matches secondary)
-      highlight: "#6366f1", // Blue for highlighted spots (matches primary)
+      main: "#00D4FF", // Neon cyan for sparklines (matches primary)
+      highlight: "#00FFFF", // Brighter cyan for highlighted spots
     },
   },
   typography: {
@@ -151,9 +151,47 @@ const dashboardTheme: ThemeOptions = {
           textTransform: "none",
           borderRadius: "8px",
           fontWeight: 600,
-          background: "linear-gradient(45deg, #6366f1, #06b6d4)",
+          transition: "all 0.3s ease",
+        },
+        contained: {
+          backgroundColor: "#00D4FF", // Solid neon cyan
+          color: "#000",
+          boxShadow: "0 0 15px rgba(0, 212, 255, 0.5), 0 4px 6px rgba(0, 0, 0, 0.3)",
           "&:hover": {
-            background: "linear-gradient(45deg, #4f46e5, #0891b2)",
+            backgroundColor: "#00FFFF", // Brighter on hover
+            boxShadow: "0 0 25px rgba(0, 255, 255, 0.7), 0 6px 8px rgba(0, 0, 0, 0.4)",
+            transform: "translateY(-1px)",
+          },
+          "&:active": {
+            backgroundColor: "#0099CC",
+            boxShadow: "0 0 10px rgba(0, 212, 255, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3)",
+          },
+          "&.MuiButton-colorError": {
+            backgroundColor: "#ef4444", // Keep red for error buttons
+            color: "#fff",
+            boxShadow: "0 0 15px rgba(239, 68, 68, 0.5), 0 4px 6px rgba(0, 0, 0, 0.3)",
+            "&:hover": {
+              backgroundColor: "#f87171",
+              boxShadow: "0 0 25px rgba(239, 68, 68, 0.7), 0 6px 8px rgba(0, 0, 0, 0.4)",
+            },
+          },
+        },
+        outlined: {
+          borderColor: "#00D4FF",
+          color: "#00D4FF",
+          "&:hover": {
+            borderColor: "#00FFFF",
+            backgroundColor: "rgba(0, 212, 255, 0.1)",
+            boxShadow: "0 0 15px rgba(0, 212, 255, 0.3)",
+          },
+          "&.MuiButton-colorError": {
+            borderColor: "#ef4444", // Keep red for error outlined buttons
+            color: "#ef4444",
+            "&:hover": {
+              borderColor: "#f87171",
+              backgroundColor: "rgba(239, 68, 68, 0.1)",
+              boxShadow: "0 0 15px rgba(239, 68, 68, 0.3)",
+            },
           },
         },
       },
@@ -161,7 +199,41 @@ const dashboardTheme: ThemeOptions = {
     MuiSlider: {
       styleOverrides: {
         root: {
-          color: "#6366f1",
+          color: "#00D4FF",
+        },
+      },
+    },
+    MuiTableHead: {
+      styleOverrides: {
+        root: {
+          "& .MuiTableRow-root": {
+            backgroundColor: "#0a1a2e", // Deep dark blue background
+            borderBottom: "2px solid #00D4FF", // Neon cyan border
+            boxShadow: "0 0 15px rgba(0, 212, 255, 0.3) inset",
+            "& .MuiTableCell-root": {
+              color: "#00D4FF", // Neon cyan text
+              fontWeight: 700,
+              textShadow: "0 0 8px rgba(0, 212, 255, 0.5)",
+            },
+          },
+        },
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "rgba(15, 23, 42, 0.95)",
+          backdropFilter: "blur(10px)",
+          borderBottom: "1px solid rgba(0, 212, 255, 0.3)",
+          boxShadow: "0 2px 10px rgba(0, 212, 255, 0.2)",
+        },
+      },
+    },
+    MuiDrawer: {
+      styleOverrides: {
+        paper: {
+          borderRight: "1px solid rgba(0, 212, 255, 0.2)",
+          boxShadow: "2px 0 10px rgba(0, 212, 255, 0.1)",
         },
       },
     },

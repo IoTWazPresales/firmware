@@ -50,7 +50,7 @@ interface Props {
 
 const Layout: FC<Props> = ({ children }) => {
   const [mobileOpen, setMobileOpen]         = useState(false);
-  const [title, setTitle]                   = useState('ESP32 Control');
+  const [title, setTitle]                   = useState('NeuroGrow Control');
   const { pathname }                        = useLocation();
 
   // ← track cloud-connected state
@@ -81,7 +81,7 @@ const Layout: FC<Props> = ({ children }) => {
       })
       .catch(err => {
         console.error('Discovery error:', err);
-        setMessage('Could not find ESP32 at neurogrow.local');
+        setMessage('Could not find NeuroGrow device at neurogrow.local');
         setMessageType('error');
         setShowMessage(true);
       })
@@ -235,14 +235,14 @@ const Layout: FC<Props> = ({ children }) => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Connect ESP32 to Cloud</DialogTitle>
+        <DialogTitle>Connect NeuroGrow to Cloud</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             {isDetectingIP ? (
               <Typography>Detecting device on neurogrow.local…</Typography>
             ) : esp32Ip ? (
               <TextField
-                label="ESP32 IP Address"
+                label="NeuroGrow IP Address"
                 value={esp32Ip}
                 fullWidth
                 InputProps={{ readOnly: true }}

@@ -8,6 +8,10 @@ extern SensorManager sensorManager;
 ScannerEndpoints::ScannerEndpoints(AsyncWebServer* server, DeviceScanner* scanner)
   : _server(server), _scanner(scanner)
 {
+    // Don't register routes in constructor - do it in begin() after LittleFS is mounted
+}
+
+void ScannerEndpoints::begin() {
     handleScanData();
     handleConfig();
 }

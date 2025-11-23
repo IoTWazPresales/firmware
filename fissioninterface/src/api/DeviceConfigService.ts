@@ -1,9 +1,9 @@
-import axios from 'axios';
+import axiosInstance from './axiosInstance';
 import { API_CONFIG } from './apiConfig';
 
 // Fetch existing assignments: GET /api/config
 export const fetchSensorAssignments = async (): Promise<{[pin:string]:string}> => {
-  const resp = await axios.get<{[pin:string]:string}>(API_CONFIG.SCANNER.CONFIG);
+  const resp = await axiosInstance.get<{[pin:string]:string}>(API_CONFIG.SCANNER.CONFIG);
   return resp.data;
 };
 
@@ -11,8 +11,8 @@ export const fetchSensorAssignments = async (): Promise<{[pin:string]:string}> =
 export const saveAllSensorAssignments = async (
   assignments: { [pin: string]: string }
 ): Promise<void> => {
-  await axios.post(API_CONFIG.SCANNER.CONFIG, assignments);
+  await axiosInstance.post(API_CONFIG.SCANNER.CONFIG, assignments);
 };
 export const resetSensorAssignments = async (): Promise<void> => {
-  await axios.post(API_CONFIG.SCANNER.RESET);
+  await axiosInstance.post(API_CONFIG.SCANNER.RESET);
 };

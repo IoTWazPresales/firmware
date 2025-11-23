@@ -12,6 +12,8 @@ import {
   TextField, InputAdornment,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import AddIcon from '@mui/icons-material/Add';
+import SensorWizard from '../components/SensorWizard';
 
 import {
   fetchScannedDevices,
@@ -82,6 +84,7 @@ const Devices: FC = () => {
   const [packageBusy, setPackageBusy] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [searchFilter, setSearchFilter] = useState<string>('');
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   // load saved assignments once
   useEffect(() => {
@@ -210,7 +213,11 @@ const Devices: FC = () => {
 
   const handleChange = (key: string, type: string) =>
     setAssignments(prev => ({ ...prev, [key]: type }));
-  
+
+  const handleWizardComplete = (assignment: { port: string; sensorType: string }) => {
+    setAssignments(prev => ({ ...prev, [assignment.port]: assignment.sensorType }));
+    enqueueSnackbar('Sensor added successfully!', { variant: 'success' });
+  };
 
   return (
     <CustomTheme>
@@ -232,6 +239,11 @@ const Devices: FC = () => {
             sx={{ minWidth: 250, flexGrow: { xs: 1, sm: 0 } }}
           />
           <Box sx={{ display:'flex', gap:1, flexWrap: 'wrap' }}>
+            <Tooltip title="Add a new sensor using the setup wizard">
+              <Button variant="contained" color="primary" onClick={() => setWizardOpen(true)} startIcon={<AddIcon />}>
+                Add Sensor
+              </Button>
+            </Tooltip>
             <Tooltip title="Scan for connected sensors on all ports">
               <Button variant="outlined" onClick={handleTrigger} disabled={loading}>
                 Scan Now
@@ -266,11 +278,11 @@ const Devices: FC = () => {
         >
           <Table sx={{ minWidth: 650 }}>
             <TableHead>
-              <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                <TableCell sx={{ color:'white', fontWeight:'bold' }}>Port</TableCell>
-                <TableCell sx={{ color:'white', fontWeight:'bold' }}>Pin #</TableCell>
-                <TableCell sx={{ color:'white', fontWeight:'bold' }}>Detected?</TableCell>
-                <TableCell sx={{ color:'white', fontWeight:'bold' }}>Sensor</TableCell>
+              <TableRow>
+                <TableCell>Connection Port</TableCell>
+                <TableCell>GPIO Pin</TableCell>
+                <TableCell>Device Detected</TableCell>
+                <TableCell>Sensor Type</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -286,12 +298,23 @@ const Devices: FC = () => {
                 const entry = scan.analogPins.find(p => p.pin === pin);
                 const detected = entry?.detected ?? false;
                 return (
-                  <TableRow key={key} sx={{ opacity: detected ? 1 : 0.4 }}>
-                    <TableCell>{label}</TableCell>
-                    <TableCell>{pin}</TableCell>
+                  <TableRow 
+                    key={key} 
+                    sx={{ 
+                      opacity: detected ? 1 : 0.5,
+                      '&:hover': { backgroundColor: 'action.hover' },
+                      transition: 'background-color 0.2s',
+                    }}
+                  >
+                    <TableCell sx={{ fontWeight: 500 }}>{label}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>{pin}</TableCell>
                     <TableCell>
-                      <Chip label={detected ? 'Yes' : 'No'}
-                            color={detected ? 'success' : 'default'} />
+                      <Chip 
+                        label={detected ? 'Detected' : 'Not Detected'}
+                        color={detected ? 'success' : 'default'}
+                        size="small"
+                        variant={detected ? 'filled' : 'outlined'}
+                      />
                     </TableCell>
                     <TableCell>
                       <Select
@@ -299,6 +322,7 @@ const Devices: FC = () => {
                         onChange={e => handleChange(key, e.target.value as string)}
                         disabled={!detected}
                         fullWidth
+                        size="small"
                       >
                         {SENSOR_TYPES.map(t => (
                           <MenuItem key={t.value} value={t.value}>
@@ -323,12 +347,23 @@ const Devices: FC = () => {
                 const entry = scan.digitalPins.find(p => p.pin === pin);
                 const detected = entry?.detected ?? false;
                 return (
-                  <TableRow key={key} sx={{ opacity: detected ? 1 : 0.4 }}>
-                    <TableCell>{label}</TableCell>
-                    <TableCell>{pin}</TableCell>
+                  <TableRow 
+                    key={key} 
+                    sx={{ 
+                      opacity: detected ? 1 : 0.5,
+                      '&:hover': { backgroundColor: 'action.hover' },
+                      transition: 'background-color 0.2s',
+                    }}
+                  >
+                    <TableCell sx={{ fontWeight: 500 }}>{label}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>{pin}</TableCell>
                     <TableCell>
-                      <Chip label={detected ? 'Yes' : 'No'}
-                            color={detected ? 'success' : 'default'} />
+                      <Chip 
+                        label={detected ? 'Detected' : 'Not Detected'}
+                        color={detected ? 'success' : 'default'}
+                        size="small"
+                        variant={detected ? 'filled' : 'outlined'}
+                      />
                     </TableCell>
                     <TableCell>
                       <Select
@@ -336,6 +371,7 @@ const Devices: FC = () => {
                         onChange={e => handleChange(key, e.target.value as string)}
                         disabled={!detected}
                         fullWidth
+                        size="small"
                       >
                         {SENSOR_TYPES.map(t => (
                           <MenuItem key={t.value} value={t.value}>
@@ -350,9 +386,18 @@ const Devices: FC = () => {
 
               {/* I²C sockets */}
               <TableRow>
-                <TableCell colSpan={4}
-                           sx={{ backgroundColor:'#eee', fontStyle:'italic' }}>
-                  I²C Sockets
+                <TableCell 
+                  colSpan={4}
+                  sx={{ 
+                    backgroundColor: 'primary.dark', 
+                    color: 'primary.contrastText',
+                    fontWeight: 'bold', 
+                    py: 1.5,
+                    fontSize: '0.95rem',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  I²C Bus Connections
                 </TableCell>
               </TableRow>
               {I2C_PORTS.filter(({ label, key }) => {
@@ -365,15 +410,23 @@ const Devices: FC = () => {
               }).map(({label, key}, idx) => {
                 const detected = scan.i2cDevices.length > idx;
                 return (
-                  <TableRow key={key}>
-                    <TableCell>{label}</TableCell>
-                    <TableCell>
+                  <TableRow 
+                    key={key}
+                    sx={{ 
+                      '&:hover': { backgroundColor: 'action.hover' },
+                      transition: 'background-color 0.2s',
+                    }}
+                  >
+                    <TableCell sx={{ fontWeight: 500 }}>{label}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
                       {detected ? scan.i2cDevices[idx] : '--'}
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={detected ? 'Yes' : 'No'}
+                        label={detected ? 'Detected' : 'Not Detected'}
                         color={detected ? 'success' : 'default'}
+                        size="small"
+                        variant={detected ? 'filled' : 'outlined'}
                       />
                     </TableCell>
                     <TableCell>
@@ -382,6 +435,7 @@ const Devices: FC = () => {
                         onChange={e => handleChange(key, e.target.value as string)}
                         disabled={!detected}
                         fullWidth
+                        size="small"
                       >
                         {SENSOR_TYPES.map(t => (
                           <MenuItem key={t.value} value={t.value}>
@@ -453,6 +507,13 @@ const Devices: FC = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        <SensorWizard
+          open={wizardOpen}
+          onClose={() => setWizardOpen(false)}
+          onComplete={handleWizardComplete}
+          scanResults={scan}
+        />
       </Box>
       </SnackbarProvider>
     </CustomTheme>

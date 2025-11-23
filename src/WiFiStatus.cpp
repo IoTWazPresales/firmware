@@ -3,6 +3,11 @@ WiFiStatus::WiFiStatus(AsyncWebServer* server) {
   server->on(WIFI_STATUS_SERVICE_PATH, HTTP_GET, [this](AsyncWebServerRequest *request) {
     wifiStatus(request);
 });
+  // Don't register WiFi events in constructor - do it in begin() after WiFi is initialized
+}
+
+void WiFiStatus::begin() {
+  // Register WiFi event handlers after WiFi is initialized
   WiFi.onEvent(onStationModeConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
   WiFi.onEvent(onStationModeDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   WiFi.onEvent(onStationModeGotIP, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);

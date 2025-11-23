@@ -9,6 +9,7 @@ class DriverPackageManager;
 class DriverPackageService {
  public:
   DriverPackageService(AsyncWebServer* server, DriverPackageManager* manager, fs::FS* fs);
+  void begin();  // Initialize filesystem-dependent operations (call after LittleFS is mounted)
 
  private:
   void handleUpload(AsyncWebServerRequest* request,

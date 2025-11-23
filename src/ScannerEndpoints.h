@@ -11,6 +11,7 @@ extern SensorManager sensorManager;
 class ScannerEndpoints {
 public:
     ScannerEndpoints(AsyncWebServer* server, DeviceScanner* scanner);
+    void begin();  // Initialize routes after LittleFS is mounted
 
 private:
     AsyncWebServer* _server;

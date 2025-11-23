@@ -14,6 +14,7 @@
 class WiFiStatus {
  public:
   WiFiStatus(AsyncWebServer* server);
+  void begin();  // Initialize WiFi event handlers (call after WiFi is initialized)
 
  private:
   // static functions for logging WiFi events to the UART

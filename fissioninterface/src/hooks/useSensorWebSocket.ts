@@ -8,7 +8,7 @@ interface SensorWebSocketData {
 }
 
 export const useSensorWebSocket = (enabled: boolean = true) => {
-  // ESP32 WebSocket endpoint is /ws (not /ws/ws)
+  // NeuroGrow WebSocket endpoint is /ws (not /ws/ws)
   const location = window.location;
   const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${wsProtocol}//${location.host}/ws`;

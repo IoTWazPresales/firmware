@@ -1,6 +1,7 @@
 // DeviceScanner.cpp
 
 #include "DeviceScanner.h"
+#include "UnknownSensorDetector.h"
 #include <Wire.h>
 #include <ArduinoJson.h>
 
@@ -51,8 +52,20 @@ void DeviceScanner::scanI2CBus() {
         Wire.beginTransmission(addr);
         if (Wire.endTransmission() == 0) {
             String s = "0x" + String(addr, HEX);
-            arr.add(s);
-            Serial.printf("  ✅ I2C @ %s\n", s.c_str());
+            JsonObject device = arr.createNestedObject();
+            device["address"] = s;
+            
+            // Check if we have a driver for this device (simplified - would need registry check)
+            bool hasDriver = false;
+            // Common sensor addresses - this should check SensorDriverRegistry in real implementation
+            if (addr == 0x48 || addr == 0x49 || addr == 0x76 || addr == 0x77) {
+                device["known"] = true;
+                hasDriver = true;
+            } else {
+                device["known"] = false;
+            }
+            
+            Serial.printf("  ✅ I2C @ %s %s\n", s.c_str(), hasDriver ? "(known)" : "(unknown)");
         }
     }
     Serial.printf("🔍 → found %u I²C device(s)\n", arr.size());
@@ -139,6 +152,63 @@ void DeviceScanner::scanUARTInterfaces() {
     // no-op for now
 }
 
+void DeviceScanner::collectUnknownSensorSignatures() {
+    unknownSignatures.clear();
+    JsonArray signatures = unknownSignatures.createNestedArray("signatures");
+    
+    // Collect I2C signatures for unknown devices
+    JsonArray i2cDevices = scanResults["i2cDevices"].to<JsonArray>();
+    for (size_t i = 0; i < i2cDevices.size(); i++) {
+        JsonObject device = i2cDevices[i].as<JsonObject>();
+        if (device.containsKey("known") && !device["known"].as<bool>()) {
+            String addrStr = device["address"].as<String>();
+            uint8_t addr = (uint8_t)strtol(addrStr.c_str() + 2, nullptr, 16);
+            auto sig = UnknownSensorDetector::detectI2CDevice(addr);
+            JsonObject sigObj = signatures.createNestedObject();
+            sigObj["interfaceType"] = sig.interfaceType;
+            sigObj["identifier"] = sig.identifier;
+            sigObj["timestamp"] = sig.timestamp;
+            sigObj["metadata"] = sig.metadata;
+        }
+    }
+    
+    // Collect analog signatures for detected but unknown sensors
+    JsonArray analogPins = scanResults["analogPins"].to<JsonArray>();
+    for (size_t i = 0; i < analogPins.size(); i++) {
+        JsonObject pin = analogPins[i].as<JsonObject>();
+        if (pin["detected"].as<bool>()) {
+            int pinNum = pin["pin"].as<int>();
+            auto sig = UnknownSensorDetector::detectAnalogPin(pinNum);
+            JsonObject sigObj = signatures.createNestedObject();
+            sigObj["interfaceType"] = sig.interfaceType;
+            sigObj["identifier"] = sig.identifier;
+            sigObj["timestamp"] = sig.timestamp;
+            sigObj["metadata"] = sig.metadata;
+        }
+    }
+    
+    // Collect digital signatures
+    JsonArray digitalPins = scanResults["digitalPins"].to<JsonArray>();
+    for (size_t i = 0; i < digitalPins.size(); i++) {
+        JsonObject pin = digitalPins[i].as<JsonObject>();
+        if (pin["detected"].as<bool>()) {
+            int pinNum = pin["pin"].as<int>();
+            auto sig = UnknownSensorDetector::detectDigitalPin(pinNum);
+            JsonObject sigObj = signatures.createNestedObject();
+            sigObj["interfaceType"] = sig.interfaceType;
+            sigObj["identifier"] = sig.identifier;
+            sigObj["timestamp"] = sig.timestamp;
+            sigObj["metadata"] = sig.metadata;
+        }
+    }
+}
+
+String DeviceScanner::getUnknownSensorSignatures() {
+    String output;
+    serializeJsonPretty(unknownSignatures, output);
+    return output;
+}
+
 void DeviceScanner::begin() {
     Serial.println("🚀 DeviceScanner::begin()");
     scanResults.clear();
@@ -146,6 +216,8 @@ void DeviceScanner::begin() {
     scanResults.createNestedArray("analogPins");
     scanResults.createNestedArray("digitalPins");
     scanResults.createNestedArray("uartInterfaces");
+    
+    unknownSignatures.clear();
 
     // I²C setup
     Wire.begin(SDA_PIN, SCL_PIN);
@@ -155,6 +227,7 @@ void DeviceScanner::begin() {
     scanAnalogPins();
     scanDigitalPins();
     scanUARTInterfaces();
+    collectUnknownSensorSignatures();
 
     // HTTP endpoints
     _server->on("/api/scan", HTTP_GET, [this](AsyncWebServerRequest* req){
@@ -167,7 +240,15 @@ void DeviceScanner::begin() {
         scanAnalogPins();
         scanDigitalPins();
         scanUARTInterfaces();
+        collectUnknownSensorSignatures();
         req->send(200, "application/json", getScanResults());
+    });
+    
+    // Unknown sensor signature endpoint
+    _server->on("/api/scan/unknown", HTTP_GET, [this](AsyncWebServerRequest* req){
+        collectUnknownSensorSignatures();
+        String json = getUnknownSensorSignatures();
+        req->send(200, "application/json", json);
     });
 
     Serial.println("✔️ Initial scan complete");
@@ -182,6 +263,7 @@ void DeviceScanner::loop() {
     scanAnalogPins();
     scanDigitalPins();
     scanUARTInterfaces();
+    collectUnknownSensorSignatures();
 
     Serial.println("✔️ Periodic scan complete");
 }

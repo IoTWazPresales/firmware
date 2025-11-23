@@ -1,6 +1,6 @@
 // src/api/DeviceScannerService.ts
 
-import axios from 'axios';
+import axiosInstance from './axiosInstance';
 import { API_CONFIG } from './apiConfig';
 
 /**
@@ -36,7 +36,7 @@ export interface ScanResults {
  * Fetches the latest scan results.
  */
 export const fetchScannedDevices = async (): Promise<ScanResults> => {
-  const resp = await axios.get<ScanResults>(API_CONFIG.SCANNER.DEVICES);
+  const resp = await axiosInstance.get<ScanResults>(API_CONFIG.SCANNER.DEVICES);
   return resp.data;
 };
 
@@ -45,7 +45,7 @@ export const fetchScannedDevices = async (): Promise<ScanResults> => {
  */
 export const triggerScan = async (): Promise<ScanResults> => {
   // Fire the scan
-  await axios.post(API_CONFIG.SCANNER.TRIGGER);
+  await axiosInstance.post(API_CONFIG.SCANNER.TRIGGER);
   // Re-fetch updated results
   return fetchScannedDevices();
 };

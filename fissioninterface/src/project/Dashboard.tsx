@@ -275,7 +275,7 @@ const Dashboard: FC = () => {
         const [sensorResponse, thresholdsResponse, devicesResponse, telemetryResponse] = await Promise.all([
           SensorService.getSensorData(),
           fetchThresholds(),
-          getDeviceStates(),
+        getDeviceStates(),
           TelemetryService.fetchTelemetry().catch(() => null),
         ]);
 
@@ -321,8 +321,16 @@ const Dashboard: FC = () => {
 
           return next;
         });
-      } catch (error) {
-        enqueueSnackbar('Failed to fetch sensor data', { variant: 'error' });
+      } catch (error: any) {
+        // Check if it's a network error
+        if (error?.isNetworkError) {
+          enqueueSnackbar('Backend not available. Please ensure the NeuroGrow device is connected and running.', { 
+            variant: 'warning',
+            persist: true 
+          });
+        } else {
+          enqueueSnackbar('Failed to fetch sensor data', { variant: 'error' });
+        }
       } finally {
         setLoading(false);
       }
@@ -509,16 +517,16 @@ const Dashboard: FC = () => {
               </Typography>
             </Paper>
           ) : (
-            <Box
-              sx={{
-                display: 'grid',
+        <Box
+          sx={{
+            display: 'grid',
                 gridTemplateColumns: {
                   xs: '1fr',
                   sm: 'repeat(2, 1fr)',
                   md: 'repeat(3, 1fr)',
                   lg: 'repeat(4, 1fr)',
                 },
-                gap: 2,
+            gap: 2,
               }}
             >
               {cardConfigs.map(renderCard)}

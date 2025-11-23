@@ -109,6 +109,8 @@ void WiFiScanner::scanNetworks(AsyncWebServerRequest* request) {
 
   // Start new scan (async, non-blocking)
   // Note: This will cause AP clients to disconnect temporarily
+  // User clicked "Scan again" so they expect this
+  _lastScanTime = millis();  // Mark that we started a new scan
   int networksFound = WiFi.scanNetworks(true, true);  // async=true, show_hidden=true
   
   if (networksFound == -1) {
@@ -117,7 +119,7 @@ void WiFiScanner::scanNetworks(AsyncWebServerRequest* request) {
     return;
   }
 
-  // Schedule AP restart after scan completes (will happen in listNetworks when scan is done)
+  // Scan started - AP will restart when scan completes (handled in listNetworks)
   request->send(202, "application/json", "{\"status\":\"scanning\",\"message\":\"Scan started. You may be disconnected briefly. Reconnect to AP when scan completes.\"}");
 }
 

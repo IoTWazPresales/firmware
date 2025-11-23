@@ -25,6 +25,7 @@ class WiFiScanner {
   
   bool _hasCachedResults = false;
   int _cachedNetworkCount = 0;
+  unsigned long _lastScanTime = 0;  // Track when scan was started
   String _apSSID;
   String _apPassword;
 };

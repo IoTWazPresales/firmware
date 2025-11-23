@@ -94,8 +94,9 @@ const WiFiNetworkScanner: FC = () => {
   useEffect(() => {
     // On mount, try to get existing scan results first (from pre-scan)
     // Don't trigger a new scan immediately - check if results already exist
+    // This prevents disconnection when opening the tab
     pollNetworkList();
-  }, [pollNetworkList]);
+  }, []); // Empty deps - only run once on mount
  
 
   const renderNetworkScanner = () => {

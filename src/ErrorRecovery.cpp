@@ -40,30 +40,38 @@ void ErrorRecovery::saveCriticalState() {
   _prefs.putUInt("boot_count", _prefs.getUInt("boot_count", 0) + 1);
   _prefs.end();
   
-  // Save to LittleFS as backup
-  DynamicJsonDocument doc(512);
-  doc["last_save"] = millis();
-  doc["boot_count"] = _prefs.getUInt("boot_count", 0);
-  
-  File f = LittleFS.open("/recovery.json", "w");
-  if (f) {
-    serializeJson(doc, f);
-    f.close();
+  // Save to LittleFS as backup (only if LittleFS is mounted)
+  if (LittleFS.begin(false)) {  // Try to mount if not already mounted (false = don't format)
+    DynamicJsonDocument doc(512);
+    doc["last_save"] = millis();
+    _prefs.begin("recovery", true);
+    doc["boot_count"] = _prefs.getUInt("boot_count", 0);
+    _prefs.end();
+    
+    File f = LittleFS.open("/recovery.json", "w");
+    if (f) {
+      serializeJson(doc, f);
+      f.close();
+    }
   }
 }
 
 void ErrorRecovery::restoreCriticalState() {
   // Restore from Preferences or LittleFS
+  // Note: Preferences should be safe to use, but LittleFS must be mounted first
   _prefs.begin("recovery", true);
   unsigned long lastSave = _prefs.getULong("last_save", 0);
   unsigned int bootCount = _prefs.getUInt("boot_count", 0);
   _prefs.end();
   
-  Serial.printf("📦 Recovery state: boot_count=%u, last_save=%lu\n", bootCount, lastSave);
-  
-  // If multiple rapid restarts, might indicate a problem
-  if (bootCount > 5) {
-    Serial.println("⚠️ High boot count detected - possible boot loop");
+  // Only use Serial if it's initialized (after Serial.begin())
+  if (Serial) {
+    Serial.printf("📦 Recovery state: boot_count=%u, last_save=%lu\n", bootCount, lastSave);
+    
+    // If multiple rapid restarts, might indicate a problem
+    if (bootCount > 5) {
+      Serial.println("⚠️ High boot count detected - possible boot loop");
+    }
   }
 }
 

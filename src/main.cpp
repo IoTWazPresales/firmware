@@ -107,15 +107,6 @@ void setup() {
     Logger::setLevel(LogLevel::INFO);
     Logger::info("Firmware starting");
     
-    Serial.println("ErrorRecovery init");
-    Serial.flush();
-    ErrorRecovery::restoreCriticalState();
-    ErrorRecovery::saveCriticalState();
-    
-    Serial.println("ESP32React init");
-    Serial.flush();
-    // esp32React.begin() is called later after LittleFS is mounted (Preferences needs it)
-    
     Serial.println("Watchdog init");
     Serial.flush();
     esp_task_wdt_init(30, /* panic */ false);
@@ -130,6 +121,16 @@ void setup() {
         Serial.println("LittleFS OK");
         Serial.flush();
     }
+    
+    // ErrorRecovery needs LittleFS to be mounted before accessing it
+    Serial.println("ErrorRecovery init");
+    Serial.flush();
+    ErrorRecovery::restoreCriticalState();
+    ErrorRecovery::saveCriticalState();
+    
+    Serial.println("ESP32React init");
+    Serial.flush();
+    // esp32React.begin() is called later after LittleFS is mounted (Preferences needs it)
         
         if (!LittleFS.exists("/config.json")) {
             fileSystem.writeFile(LittleFS, "/config.json", "{}");

@@ -114,7 +114,7 @@ void setup() {
     
     Serial.println("ESP32React init");
     Serial.flush();
-    esp32React.begin();
+    // esp32React.begin() is called later after LittleFS is mounted (Preferences needs it)
     
     Serial.println("Watchdog init");
     Serial.flush();

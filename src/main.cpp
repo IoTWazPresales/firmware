@@ -100,24 +100,35 @@ void clearSupabaseCredentials() {
 }
 void setup() {
     Serial.begin(115200);
-    delay(2000);  // Longer delay to ensure Serial is fully ready
-    Serial.println("NeuroGrow boot");
+    delay(2000);
+    Serial.println("Boot start");
+    Serial.flush();
     
     Logger::setLevel(LogLevel::INFO);
     Logger::info("Firmware starting");
     
+    Serial.println("ErrorRecovery init");
+    Serial.flush();
     ErrorRecovery::restoreCriticalState();
     ErrorRecovery::saveCriticalState();
     
+    Serial.println("ESP32React init");
+    Serial.flush();
     esp32React.begin();
     
-    // ─── TASK WATCHDOG ──────────────────────────────────────────────
+    Serial.println("Watchdog init");
+    Serial.flush();
     esp_task_wdt_init(30, /* panic */ false);
     
-    // ─── Mount LittleFS ───────────────────────────────────────────
+    Serial.println("LittleFS mount");
+    Serial.flush();
     bool littlefsMounted = LittleFS.begin(true);
     if (!littlefsMounted) {
         Serial.println("LittleFS failed");
+        Serial.flush();
+    } else {
+        Serial.println("LittleFS OK");
+        Serial.flush();
     }
         
         if (!LittleFS.exists("/config.json")) {
@@ -259,7 +270,8 @@ void setup() {
    
     taskManager.begin();
     
-    // Initialize SensorDataCollector and DataLogger after sensors are initialized
+    Serial.println("Creating dataCollector");
+    Serial.flush();
     dataCollector = new SensorDataCollector(
         sensorManager.getFirstPH(),
         sensorManager.getFirstTemperatureSensor(),
@@ -269,6 +281,8 @@ void setup() {
         sensorManager.getFirstTDS(),
         sensorManager.getFirstAtmosphereSensor()
     );
+    Serial.println("Creating dataLogger");
+    Serial.flush();
     dataLogger = new DataLogger(&fileSystem, dataCollector, &server);
     
     // Auto-detect sensors if config is empty

@@ -171,7 +171,6 @@ void setup() {
         if (!LittleFS.exists("/index.html")) {
             Serial.println("⚠️ index.html missing from filesystem");
         }
-    }
     
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-device-api-key, X-Device-Api-Key");

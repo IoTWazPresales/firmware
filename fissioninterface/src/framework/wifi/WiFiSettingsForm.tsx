@@ -28,14 +28,34 @@ const WiFiSettingsForm: FC = () => {
   const [fieldErrors, setFieldErrors] = useState<ValidateFieldsError>();
   const [initialized, setInitialized] = useState(false);
   const validateAndSubmit = async () => {
+    if (!data) {
+      setErrorMessage('No data to save');
+      return;
+    }
+    
     setSaving(true);
+    setErrorMessage('');
+    
     try {
-      // Your save logic here
-      // Example: await saveData();
-    } catch (error) {
-      console.error(error);
+      // Validate required fields
+      if (!data.ssid || data.ssid.trim() === '') {
+        setErrorMessage('SSID is required');
+        setSaving(false);
+        return;
+      }
+      
+      // Call the save function
+      await saveWiFiSettings(data);
+      
+      // Show success message
+      setErrorMessage('');
+      // Optionally show a success notification here
+      
+    } catch (error: any) {
+      console.error('Error saving WiFi settings:', error);
+      setErrorMessage(error?.message || 'Error saving WiFi settings');
     } finally {
-      setSaving(false); // Reset saving state after the operation
+      setSaving(false);
     }
   };
 

@@ -13,6 +13,20 @@ void WiFiSettingsService::begin() {
     handleSettingsRequest(request);
   });
   
+  // POST handler to save WiFi settings
+  _server->on(WIFI_SETTINGS_SERVICE_PATH, HTTP_POST,
+    [](AsyncWebServerRequest* request) {},  // No upload handler
+    nullptr,
+    [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+      handleSaveSettingsRequest(request, data, len);
+    }
+  );
+  
+  // CORS preflight
+  _server->on(WIFI_SETTINGS_SERVICE_PATH, HTTP_OPTIONS, [](AsyncWebServerRequest* request) {
+    request->send(204);
+  });
+  
   // WiFi is already initialized by main.cpp (AP mode)
   // Just load settings and set up event handlers
   WiFi.persistent(false);
@@ -201,6 +215,49 @@ void WiFiSettingsService::handleSettingsRequest(AsyncWebServerRequest* request) 
   _settings.toJson(root);
   String response;
   serializeJson(jsonDoc, response);
+  request->send(200, "application/json", response);
+}
+
+void WiFiSettingsService::handleSaveSettingsRequest(AsyncWebServerRequest* request, uint8_t* data, size_t len) {
+  Serial.println("[WiFiSettingsService] Received POST request to save WiFi settings");
+  
+  DynamicJsonDocument jsonDoc(1024);
+  DeserializationError error = deserializeJson(jsonDoc, (char*)data, len);
+  
+  if (error) {
+    Serial.printf("[WiFiSettingsService] JSON parse error: %s\n", error.c_str());
+    request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+    return;
+  }
+  
+  if (!jsonDoc.is<JsonObject>()) {
+    Serial.println("[WiFiSettingsService] Invalid JSON structure");
+    request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON structure\"}");
+    return;
+  }
+  
+  JsonObject root = jsonDoc.as<JsonObject>();
+  
+  // Update settings from JSON
+  _settings.fromJson(root);
+  
+  // Save to file
+  saveSettings();
+  
+  // Reconfigure WiFi connection
+  reconfigureWiFiConnection();
+  
+  // Force immediate connection attempt
+  _lastConnectionAttempt = 0;
+  
+  Serial.println("[WiFiSettingsService] WiFi settings saved, reconnecting...");
+  
+  // Return updated settings
+  DynamicJsonDocument responseDoc(1024);
+  JsonObject responseRoot = responseDoc.to<JsonObject>();
+  _settings.toJson(responseRoot);
+  String response;
+  serializeJson(responseDoc, response);
   request->send(200, "application/json", response);
 }
 

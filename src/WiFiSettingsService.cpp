@@ -228,6 +228,11 @@ void WiFiSettingsService::manageSTA() {
     
     Serial.print("   Or directly at: http://");
     Serial.println(localIP);
+    Serial.println();
+    Serial.println("⚠️ IMPORTANT: Disconnect from AP and connect to the same WiFi network");
+    Serial.print("   Network: ");
+    Serial.println(_settings.ssid);
+    Serial.println("   Then access via the IP or mDNS address above");
     Serial.println("   AP mode kept active as fallback");
     Serial.flush();
     

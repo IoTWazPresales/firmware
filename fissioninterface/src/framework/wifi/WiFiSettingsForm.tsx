@@ -63,8 +63,8 @@ const WiFiSettingsForm: FC = () => {
           
           if (status.status === WiFiConnectionStatus.WIFI_STATUS_CONNECTED) {
             enqueueSnackbar(
-              `Connected! Access device at: ${status.local_ip} or http://${data.hostname || 'neurogrow'}.local`,
-              { variant: 'success', autoHideDuration: 10000 }
+              `Device connected to WiFi! Disconnect from AP and connect to the same network, then access at: ${status.local_ip} or http://${data.hostname || 'neurogrow'}.local`,
+              { variant: 'success', autoHideDuration: 15000 }
             );
           } else if (attempts < 15) {
             attempts++;
@@ -164,11 +164,20 @@ const WiFiSettingsForm: FC = () => {
             sx={{ mb: 2 }}
           >
             <Typography variant="body2" component="div">
-              <strong>Connected to WiFi!</strong>
+              <strong>✅ Device Connected to WiFi!</strong>
               <br />
-              Access device at: <strong>{wifiStatus.local_ip}</strong>
               <br />
-              Or use mDNS: <strong>http://{data?.hostname || 'neurogrow'}.local</strong>
+              <strong>Important:</strong> You must disconnect from the AP and connect to the same WiFi network to access the device.
+              <br />
+              <br />
+              <strong>Access device at:</strong>
+              <br />
+              • Direct IP: <strong>{wifiStatus.local_ip}</strong>
+              <br />
+              • mDNS: <strong>http://{data?.hostname || 'neurogrow'}.local</strong>
+              <br />
+              <br />
+              <em>If you can't access, ensure your device is on the same WiFi network: {data?.ssid || 'the configured network'}</em>
             </Typography>
           </Alert>
         )}

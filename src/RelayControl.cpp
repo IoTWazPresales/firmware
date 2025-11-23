@@ -18,7 +18,6 @@ RelayControl::RelayControl(AsyncWebServer* server, SensorManager* mgr)
 {}
 
 void RelayControl::begin() {
-    Serial.println(">>> RelayControl::begin()");
     // Feed the watchdog immediately
     esp_task_wdt_reset();
 
@@ -27,47 +26,26 @@ void RelayControl::begin() {
     yield();  // let the RTOS run
     esp_task_wdt_reset();
 
-    Serial.println("    config files loaded");
-    yield();
-    esp_task_wdt_reset();
-
     // 2) For each relay ID, set up the pin if valid
     for (auto id : {"waterPump", "intakeFan", "exhaustFan", "lights"}) {
         esp_task_wdt_reset();
-        Serial.print  ("    Loading config for: ");
-        Serial.println(id);
 
         RelayConfig* rc = getRelayStruct(id);
         if (!rc) {
-            Serial.println("      ↳ no such RelayConfig struct, skipping");
             continue;
         }
 
         // If pin was assigned (>=0), initialize it
         if (rc->pin >= 0) {
-            Serial.printf("      ↳ setting up GPIO %d\n", rc->pin);
             pinMode(rc->pin, OUTPUT);
             digitalWrite(rc->pin, HIGH);
             rc->state = false;
-
-            // Give a summary
-            Serial.printf(
-              "      → %-12s GPIO%2d  param='%s'  range[%.2f–%.2f]\n",
-              id,
-              rc->pin,
-              rc->parameter.c_str(),
-              rc->min, rc->max
-            );
-        } else {
-            Serial.println("      ↳ pin < 0, skipping");
         }
 
         // Every iteration, yield & reset WDT
         yield();
         esp_task_wdt_reset();
     }
-
-    Serial.println(">>> RelayControl::begin() complete");
 }
 
 void RelayControl::loadConfigFiles() {

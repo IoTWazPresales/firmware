@@ -26,7 +26,7 @@ void ErrorRecovery::logError(ErrorSeverity severity, const String& component, co
     
     // Check if we should restart
     if (shouldRestart()) {
-      Serial.println("🔄 Too many critical errors, restarting...");
+      Serial.println("Too many critical errors, restarting...");
       delay(1000);
       ESP.restart();
     }
@@ -77,11 +77,11 @@ void ErrorRecovery::restoreCriticalState() {
   
   // Only use Serial if it's initialized (after Serial.begin())
   if (Serial) {
-    Serial.printf("📦 Recovery state: boot_count=%u, last_save=%lu\n", bootCount, lastSave);
+    Serial.printf("Recovery: boot_count=%u\n", bootCount);
     
     // If multiple rapid restarts, might indicate a problem
     if (bootCount > 5) {
-      Serial.println("⚠️ High boot count detected - possible boot loop");
+      Serial.println("High boot count - possible boot loop");
     }
   }
 }

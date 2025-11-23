@@ -101,35 +101,22 @@ void clearSupabaseCredentials() {
 void setup() {
     Serial.begin(115200);
     delay(2000);
-    Serial.println("Boot start");
+    Serial.println("Boot");
     Serial.flush();
     
     Logger::setLevel(LogLevel::INFO);
-    Logger::info("Firmware starting");
     
-    Serial.println("Watchdog init");
-    Serial.flush();
     esp_task_wdt_init(30, /* panic */ false);
     
-    Serial.println("LittleFS mount");
-    Serial.flush();
     bool littlefsMounted = LittleFS.begin(true);
     if (!littlefsMounted) {
-        Serial.println("LittleFS failed");
-        Serial.flush();
-    } else {
-        Serial.println("LittleFS OK");
+        Serial.println("FS fail");
         Serial.flush();
     }
     
     // ErrorRecovery needs LittleFS to be mounted before accessing it
-    Serial.println("ErrorRecovery init");
-    Serial.flush();
     ErrorRecovery::restoreCriticalState();
     ErrorRecovery::saveCriticalState();
-    
-    Serial.println("ESP32React init");
-    Serial.flush();
     // esp32React.begin() is called later after LittleFS is mounted (Preferences needs it)
         
         if (!LittleFS.exists("/config.json")) {

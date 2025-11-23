@@ -256,6 +256,10 @@ void setup() {
     Serial.println(WiFi.softAPIP());
     Serial.flush();
     
+    // Initialize WiFiScanner and trigger pre-scan (before clients connect)
+    wifiScanner.begin();
+    wifiScanner.preScanNetworks();
+    
     // Now start WiFi Settings Service (for future STA connection)
     Serial.println("Starting WiFi Settings Service...");
     Serial.flush();

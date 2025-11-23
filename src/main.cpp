@@ -149,6 +149,10 @@ void setup() {
             File test = LittleFS.open("/submissions/.keep", "w");
             if (test) { test.close(); LittleFS.remove("/submissions/.keep"); }
         }
+        if (!LittleFS.exists("/config")) {
+            File test = LittleFS.open("/config/.keep", "w");
+            if (test) { test.close(); LittleFS.remove("/config/.keep"); }
+        }
         
         // Serve static files - map /static/* requests to root files
         // The build process puts files in root, but browser requests /static/*
@@ -243,22 +247,11 @@ void setup() {
     });
 
     // Initialize WiFi FIRST (required for TCP/IP stack)
-    // Simple AP mode for initial setup
+    // WiFi mode will be set by WiFiSettingsService after loading settings
     Serial.println("Initializing WiFi...");
     Serial.flush();
-    WiFi.mode(WIFI_AP_STA);
+    WiFi.mode(WIFI_AP_STA);  // Start in AP_STA mode, WiFiSettingsService will manage it
     delay(100);
-    // Create AP name with MAC address identifier (last 4 digits)
-    String macAddr = WiFi.macAddress();
-    macAddr.replace(":", "");
-    String apName = "NeuroGrow-" + macAddr.substring(macAddr.length() - 4);
-    WiFi.softAP(apName.c_str(), "setup12345678", 1, 0, 4);
-    IPAddress apIP(192, 168, 4, 1);
-    WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-    delay(1000);  // Give TCP/IP stack time to initialize
-    Serial.print("AP Mode IP: ");
-    Serial.println(WiFi.softAPIP());
-    Serial.flush();
     
     // Initialize WiFiScanner and trigger pre-scan (before clients connect)
     wifiScanner.begin();
@@ -341,5 +334,5 @@ void loop() {
         lastStateSave = millis();
     }
     
-    vTaskDelay(pdMS_TO_TICKS(25));
+    vTaskDelay(pdMS_TO_TICKS(100));  // Increased from 25ms to 100ms (10Hz instead of 40Hz)
 }

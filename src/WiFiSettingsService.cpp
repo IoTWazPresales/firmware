@@ -35,28 +35,38 @@ void WiFiSettingsService::begin() {
   // Load settings after LittleFS is mounted
   loadSettings();
   
-  // If we have saved WiFi credentials, try to connect (AP mode already running)
+  // Set up WiFi event handlers
+  WiFi.onEvent(onStationModeDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  WiFi.onEvent(onStationModeStop, ARDUINO_EVENT_WIFI_STA_STOP);
+  
+  // Initialize AP mode if no credentials, or start STA connection if credentials exist
+  // manageSTA() will be called from loop() to handle connection
   if (!_settings.ssid.isEmpty()) {
-    WiFi.onEvent(onStationModeDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
-    WiFi.onEvent(onStationModeStop, ARDUINO_EVENT_WIFI_STA_STOP);
-    Serial.println("Attempting to connect to saved WiFi: " + _settings.ssid);
-    WiFi.begin(_settings.ssid.c_str(), _settings.password.c_str());
-    // Connection will happen in loop() - don't block here
+    Serial.println("Saved WiFi credentials found: " + _settings.ssid);
+    // Connection will be attempted in manageSTA() via loop()
   } else {
-    Serial.println("No saved WiFi credentials - AP mode active");
+    Serial.println("No saved WiFi credentials - AP mode will start");
+    // AP mode will be started in manageSTA() via loop()
   }
 }
 
 void WiFiSettingsService::loop() {
-
-   if (_isScanning) return; 
+  if (_isScanning) return; 
+  
   unsigned long currentMillis = millis();
   if (!_lastConnectionAttempt || (currentMillis - _lastConnectionAttempt) >= WIFI_RECONNECTION_DELAY) {
     _lastConnectionAttempt = currentMillis;
     manageSTA();
   }
-  Serial.println("WiFi Status: " + String(WiFi.status()));
-  delay(1000); // Add delay to avoid flooding Serial
+  
+  // Reduced Serial output - only log status changes
+  static wl_status_t lastStatus = WL_NO_SHIELD;
+  wl_status_t currentStatus = WiFi.status();
+  if (currentStatus != lastStatus) {
+    Serial.printf("WiFi Status: %d\n", currentStatus);
+    lastStatus = currentStatus;
+  }
+  // Removed blocking delay(1000) - let RTOS handle scheduling
 }
 
 void WiFiSettingsService::WiFiSettings::fromJson(JsonObject& root) {
@@ -112,6 +122,12 @@ void WiFiSettingsService::loadSettings() {
 }
 
 void WiFiSettingsService::saveSettings() {
+  // Ensure /config directory exists
+  if (!LittleFS.exists("/config")) {
+    File test = LittleFS.open("/config/.keep", "w");
+    if (test) { test.close(); LittleFS.remove("/config/.keep"); }
+  }
+  
   DynamicJsonDocument doc(1024);
   JsonObject root = doc.to<JsonObject>();
   _settings.toJson(root);
@@ -122,7 +138,7 @@ void WiFiSettingsService::saveSettings() {
     file.close();
     Serial.println("WiFi settings saved");
   } else {
-    Serial.println("Failed to save WiFi settings");
+    Serial.println("Failed to save WiFi settings - file open failed");
   }
 }
 
@@ -141,6 +157,11 @@ if (WiFi.status() == WL_CONNECTED) {
 
 void WiFiSettingsService::manageSTA() {
   if (WiFi.isConnected()) {
+    // If connected, ensure AP is disabled to save power
+    if (WiFi.getMode() != WIFI_STA) {
+      WiFi.mode(WIFI_STA);
+      Serial.println("WiFi connected - AP mode disabled");
+    }
     return;
   }
   
@@ -148,19 +169,21 @@ void WiFiSettingsService::manageSTA() {
   if (_settings.ssid.isEmpty()) {
     if (WiFi.getMode() != WIFI_AP && WiFi.getMode() != WIFI_AP_STA) {
       Serial.println("No WiFi credentials - Starting AP mode for setup");
-      
-      // Set mode first
       WiFi.mode(WIFI_AP_STA);
       delay(100);
-      
-      String apSSID = _settings.hostname.isEmpty() ? "NeuroGrow-Setup" : _settings.hostname + "-Setup";
+    }
+    
+    // Create AP name with MAC address identifier (last 4 digits)
+    if (!WiFi.softAPgetStationNum()) {  // Only start if not already started
+      String macAddr = WiFi.macAddress();
+      macAddr.replace(":", "");
+      String apSSID = "NeuroGrow-" + macAddr.substring(macAddr.length() - 4);
       
       // Start AP
       bool apStarted = WiFi.softAP(apSSID.c_str(), "setup12345678", 1, 0, 4);
       
       if (!apStarted) {
         Serial.println("ERROR: Failed to start AP mode!");
-        delay(1000);
         return;
       }
       
@@ -172,41 +195,34 @@ void WiFiSettingsService::manageSTA() {
       IPAddress subnet(255, 255, 255, 0);
       WiFi.softAPConfig(apIP, gateway, subnet);
       
-      delay(100);
-      
       Serial.print("AP Mode started! IP: ");
       Serial.println(WiFi.softAPIP());
       Serial.print("AP SSID: ");
       Serial.println(apSSID);
       Serial.println("AP Password: setup12345678");
-      Serial.println("Connect to this network and go to http://192.168.4.1");
-      Serial.flush();
     }
     return;
   }
 
   // Try to connect to configured WiFi
-  WiFi.mode(WIFI_AP_STA);  // Keep AP available as fallback
+  // Keep AP available as fallback during connection attempt
+  if (WiFi.getMode() != WIFI_AP_STA) {
+    WiFi.mode(WIFI_AP_STA);
+    delay(100);
+  }
+  
+  static unsigned long lastConnectAttempt = 0;
+  unsigned long now = millis();
+  if (now - lastConnectAttempt < 5000) {
+    return;  // Don't attempt connection too frequently
+  }
+  lastConnectAttempt = now;
+  
   Serial.println("Connecting to WiFi: " + _settings.ssid);
   WiFi.begin(_settings.ssid.c_str(), _settings.password.c_str());
   
-  // Wait up to 10 seconds for connection
-  unsigned long startTime = millis();
-  while (WiFi.status() != WL_CONNECTED && (millis() - startTime) < 10000) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println();
-  
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.print("Connected! IP: ");
-    Serial.println(WiFi.localIP());
-    // Disable AP once connected
-    WiFi.mode(WIFI_STA);
-  } else {
-    Serial.println("Connection failed - AP mode still available");
-    // Keep AP mode active
-  }
+  // Non-blocking connection check (will complete in loop)
+  // Connection status will be checked on next loop iteration
 }
 
 void WiFiSettingsService::handleSettingsRequest(AsyncWebServerRequest* request) {

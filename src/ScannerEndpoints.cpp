@@ -72,26 +72,56 @@ void ScannerEndpoints::handleConfig() {
     _server->on("/api/config", HTTP_OPTIONS, [](AsyncWebServerRequest *request) {
         request->send(204);
     });
-      // POST /api/config/reset → wipe config.json back to "{}"
+      // POST /api/config/reset → wipe config files (but NOT WiFi settings)
     _server->on("/api/config/reset", HTTP_POST, [](AsyncWebServerRequest* request){
-  Serial.println("🔄 /api/config/reset called — wiping config.json");
+  Serial.println("🔄 /api/config/reset called — wiping sensor/relay config files");
   if (!LittleFS.begin(true)) {
     Serial.println("❌ LittleFS mount failed");
     request->send(500, "application/json", "{\"status\":\"error\",\"message\":\"Filesystem mount failed\"}");
     return;
   }
+  
+  // Clear /config.json (sensor assignments)
   File f = LittleFS.open("/config.json", "w");
-  if (!f) {
-    Serial.println("❌ could not open config.json for reset");
-    request->send(500, "application/json", "{\"status\":\"error\",\"message\":\"Could not open file\"}");
-    return;
+  if (f) {
+    DynamicJsonDocument emptyDoc(1024);
+    serializeJson(emptyDoc, f);
+    f.close();
+    Serial.println("✅ config.json cleared");
+  } else {
+    Serial.println("⚠️ Could not open config.json for reset");
   }
-  DynamicJsonDocument emptyDoc(1024);
-  serializeJson(emptyDoc, f);
-  f.close();
-  Serial.println("✅ config.json overwritten with {}");
+  
+  // Clear /relays.json (relay assignments)
+  File rf = LittleFS.open("/relays.json", "w");
+  if (rf) {
+    DynamicJsonDocument relayDoc(512);
+    relayDoc.createNestedArray("relays");
+    serializeJson(relayDoc, rf);
+    rf.close();
+    Serial.println("✅ relays.json cleared");
+  } else {
+    Serial.println("⚠️ Could not open relays.json for reset");
+  }
+  
+  // Clear /thresholds.json (sensor thresholds)
+  File tf = LittleFS.open("/thresholds.json", "w");
+  if (tf) {
+    DynamicJsonDocument thresholdDoc(512);
+    serializeJson(thresholdDoc, tf);
+    tf.close();
+    Serial.println("✅ thresholds.json cleared");
+  } else {
+    Serial.println("⚠️ Could not open thresholds.json for reset");
+  }
+  
+  // Note: WiFi settings in /config/wifiSettings.json are NOT cleared
+  
+  // Reload all managers
   sensorManager.loadConfig();
-  request->send(200, "application/json", "{\"status\":\"success\"}");
+  relayControl.reloadConfig();  // Reload relay and threshold configs
+  
+  request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"All config files cleared (WiFi settings preserved)\"}");
 });
 // CORS preflight for reset
 _server->on("/api/config/reset", HTTP_OPTIONS, [](AsyncWebServerRequest* request){

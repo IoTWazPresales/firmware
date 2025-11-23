@@ -4,9 +4,11 @@
 #include <ESPAsyncWebServer.h>
 #include "DeviceScanner.h"
 #include "SensorManager.h"
+#include "RelayControl.h"
 
-// Bring in the global SensorManager instance from main.cpp
+// Bring in the global SensorManager and RelayControl instances from main.cpp
 extern SensorManager sensorManager;
+extern RelayControl relayControl;
 
 class ScannerEndpoints {
 public:

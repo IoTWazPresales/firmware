@@ -23,6 +23,12 @@ float SensorHumidityDHT11::getHumidity() const {
 }
 
 void SensorHumidityDHT11::begin() {
+    // Validate GPIO pin number (ESP32 GPIO range: 0-39, but some pins are restricted)
+    if (_pin > 39 || _pin < 0) {
+        Serial.printf("ERROR: Invalid GPIO pin %d for DHT11 (must be 0-39)\n", _pin);
+        return;
+    }
+    
     Serial.printf("Starting DHT11 sensor on GPIO %d...\n", _pin);
     _dht.begin();
     Serial.println("finished!");

@@ -70,6 +70,10 @@ void RelayControl::begin() {
     Serial.println(">>> RelayControl::begin() complete");
 }
 
+void RelayControl::reloadConfig() {
+    loadConfigFiles();
+}
+
 void RelayControl::loadConfigFiles() {
     // Feed watchdog
     esp_task_wdt_reset();

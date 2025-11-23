@@ -43,22 +43,36 @@ void DeviceScanner::initializeAllPinsToSafeState() {
 
 void DeviceScanner::scanI2CBus() {
     Serial.println("🔍 Scanning I2C Bus…");
-    delay(100);
-
+    
+    // Ensure I2C is initialized
+    if (!Wire.getClock()) {
+        Serial.println("  ⚠️ I2C not initialized, initializing now...");
+        Wire.begin(SDA_PIN, SCL_PIN);
+        delay(100);
+    }
+    
     JsonArray arr = scanResults["i2cDevices"].to<JsonArray>();
     arr.clear();
 
+    uint8_t foundCount = 0;
     for (uint8_t addr = 1; addr < 127; addr++) {
         Wire.beginTransmission(addr);
-        if (Wire.endTransmission() == 0) {
+        uint8_t error = Wire.endTransmission();
+        
+        if (error == 0) {
             String s = "0x" + String(addr, HEX);
             JsonObject device = arr.createNestedObject();
             device["address"] = s;
             
-            // Check if we have a driver for this device (simplified - would need registry check)
+            // Check if we have a driver for this device
+            // Common sensor addresses: ADS1115 (0x48, 0x49), BME280/BMP280 (0x76, 0x77), 
+            // ENS160 (0x53), AS7341 (0x39), DS3231 RTC (0x68), etc.
             bool hasDriver = false;
-            // Common sensor addresses - this should check SensorDriverRegistry in real implementation
-            if (addr == 0x48 || addr == 0x49 || addr == 0x76 || addr == 0x77) {
+            if (addr == 0x48 || addr == 0x49 ||  // ADS1115 ADC
+                addr == 0x76 || addr == 0x77 ||  // BME280/BMP280
+                addr == 0x53 ||                  // ENS160 Air Quality
+                addr == 0x39 ||                  // AS7341 Spectral
+                addr == 0x68) {                  // DS3231 RTC
                 device["known"] = true;
                 hasDriver = true;
             } else {
@@ -66,11 +80,18 @@ void DeviceScanner::scanI2CBus() {
             }
             
             Serial.printf("  ✅ I2C @ %s %s\n", s.c_str(), hasDriver ? "(known)" : "(unknown)");
+            foundCount++;
+        } else if (error == 4) {
+            // Bus error - might indicate I2C bus issue
+            Serial.printf("  ⚠️ I2C bus error at address 0x%02X\n", addr);
         }
     }
-    Serial.printf("🔍 → found %u I²C device(s)\n", arr.size());
-    if (arr.size() == 0) {
+    
+    Serial.printf("🔍 → found %u I²C device(s)\n", foundCount);
+    if (foundCount == 0) {
         Serial.println("  ⚠️ No I2C devices found.");
+        Serial.println("     Check wiring: SDA=" + String(SDA_PIN) + ", SCL=" + String(SCL_PIN));
+        Serial.println("     Ensure pull-up resistors (4.7kΩ) are connected to 3.3V");
     }
 }
 
@@ -93,8 +114,11 @@ void DeviceScanner::scanAnalogPins() {
             maxv  = max(maxv, v);
             delayMicroseconds(20);
         }
-        int avg      = sum / SAMPLES;
-        bool detected = (minv > 20 && maxv < (4095 - 20));
+        int avg = sum / SAMPLES;
+        int variance = maxv - minv;
+        // Tighter detection: must have variance > 100 AND be in middle range (not floating)
+        // This reduces false positives from floating pins
+        bool detected = (variance > 100) && (minv > 100 && maxv < 4000);
 
         JsonObject o = arr.createNestedObject();
         o["pin"]       = pin;

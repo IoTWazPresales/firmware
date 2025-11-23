@@ -47,6 +47,11 @@ void SensorManager::autoDetectSensors(DeviceScanner* scanner) {
         if (manifest.driverId == "spectral" || manifest.driverId == "atmosphere" || manifest.driverId == "npk") {
             JsonArray i2cDevices = scanDoc["i2cDevices"].as<JsonArray>();
             if (i2cDevices.size() > 0) {
+                // Validate I2C pins (SDA=21, SCL=22 are standard ESP32 I2C pins)
+                if (I2C_SDA < 0 || I2C_SDA > 39 || I2C_SCL < 0 || I2C_SCL > 39) {
+                    Serial.printf("    ⚠️ Invalid I2C pins (SDA=%d, SCL=%d) for %s\n", I2C_SDA, I2C_SCL, manifest.driverId.c_str());
+                    continue;
+                }
                 // Try to create sensor using registry
                 auto& registry = SensorDriverRegistry::getInstance();
                 if (registry.hasDriver(manifest.driverId)) {
@@ -74,6 +79,12 @@ void SensorManager::autoDetectSensors(DeviceScanner* scanner) {
                 if (pin["detected"].as<bool>()) {
                     int pinNum = pin["pin"].as<int>();
                     String key = pin["key"].as<String>();
+                    
+                    // Validate GPIO pin number (ESP32 valid range: 0-39)
+                    if (pinNum < 0 || pinNum > 39) {
+                        Serial.printf("    ⚠️ Skipping invalid GPIO pin %d for %s\n", pinNum, manifest.driverId.c_str());
+                        continue;
+                    }
                     
                     // Check if already configured
                     DynamicJsonDocument cfg(2048);

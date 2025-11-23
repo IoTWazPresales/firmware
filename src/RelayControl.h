@@ -17,6 +17,7 @@ public:
 
     void begin();
     void loop();
+    void reloadConfig();  // Public method to reload config files
 
     bool getWaterPumpState()    const;
     bool getIntakeFanState()    const;

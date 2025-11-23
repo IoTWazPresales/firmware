@@ -126,11 +126,8 @@ void WiFiScanner::scanNetworks(AsyncWebServerRequest* request) {
 void WiFiScanner::listNetworks(AsyncWebServerRequest* request) {
   int numNetworks = WiFi.scanComplete();
   
-  Serial.printf("[WiFiScanner] listNetworks called, scanComplete() = %d\n", numNetworks);
-  
   if (numNetworks > 0) {
     // Scan completed successfully, return results
-    Serial.printf("[WiFiScanner] Returning %d networks\n", numNetworks);
     AsyncJsonResponse* response = new AsyncJsonResponse(false, MAX_WIFI_SCANNER_SIZE);
     JsonObject root = response->getRoot();
     JsonArray networks = root.createNestedArray("networks");
@@ -160,7 +157,6 @@ void WiFiScanner::listNetworks(AsyncWebServerRequest* request) {
     request->send(response);
   } else if (numNetworks == -1) {
     // Scan in progress - return empty networks array so frontend can keep polling
-    Serial.println("[WiFiScanner] Scan in progress, returning scanning status");
     AsyncJsonResponse* response = new AsyncJsonResponse(false, 256);
     JsonObject root = response->getRoot();
     root["count"] = 0;
@@ -170,7 +166,6 @@ void WiFiScanner::listNetworks(AsyncWebServerRequest* request) {
     request->send(response);
   } else if (numNetworks == 0) {
     // Scan completed but no networks found
-    Serial.println("[WiFiScanner] Scan completed, no networks found");
     AsyncJsonResponse* response = new AsyncJsonResponse(false, 256);
     JsonObject root = response->getRoot();
     root["count"] = 0;
@@ -189,7 +184,6 @@ void WiFiScanner::listNetworks(AsyncWebServerRequest* request) {
     request->send(response);
   } else if (numNetworks == -2) {
     // No scan has been started yet or results were cleared
-    Serial.println("[WiFiScanner] No scan results available");
     AsyncJsonResponse* response = new AsyncJsonResponse(false, 256);
     JsonObject root = response->getRoot();
     root["count"] = 0;
@@ -199,7 +193,6 @@ void WiFiScanner::listNetworks(AsyncWebServerRequest* request) {
     request->send(response);
   } else {
     // Unknown error
-    Serial.printf("[WiFiScanner] Unknown error: scanComplete() = %d\n", numNetworks);
     request->send(500, "application/json", "{\"status\":\"error\",\"message\":\"Scan failed\"}");
   }
 }

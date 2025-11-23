@@ -173,26 +173,13 @@ void RelayControl::loop() {
         // 2) decide
         bool shouldBeOn = (val < rc->min || val > rc->max);
 
-        // 3) ALWAYS print summary
-        Serial.printf(
-          "%-12s GPIO%2d '%s': val=%.2f  range[%.2f–%.2f] → %s\n",
-          id, rc->pin,
-          rc->parameter.c_str(),
-          val,
-          rc->min, rc->max,
-          shouldBeOn ? "ON" : "OFF"
-        );
-
-        // 4) only trigger if changed
+        // 3) only trigger if changed
         if (shouldBeOn != rc->state) {
             // **If your relay module is active-LOW**, swap HIGH/LOW here
            digitalWrite(rc->pin, shouldBeOn ? LOW : HIGH);
             rc->state = shouldBeOn;
-            Serial.printf("  >>> Relay %-10s turned %s\n",
-                          id, shouldBeOn ? "ON" : "OFF");
         }
     }
-    Serial.println(); // blank line between loops
 }
 
 float RelayControl::getSensorValue(const String& param) {

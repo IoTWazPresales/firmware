@@ -101,8 +101,7 @@ void clearSupabaseCredentials() {
 void setup() {
     Serial.begin(115200);
     delay(2000);  // Longer delay to ensure Serial is fully ready
-    Serial.println("\n=== NEUROGROW BOOT ===");
-    Serial.flush();
+    Serial.println("NeuroGrow boot");
     
     Logger::setLevel(LogLevel::INFO);
     Logger::info("Firmware starting");
@@ -118,9 +117,8 @@ void setup() {
     // ─── Mount LittleFS ───────────────────────────────────────────
     bool littlefsMounted = LittleFS.begin(true);
     if (!littlefsMounted) {
-        Serial.println("LittleFS Mount Failed");
-    } else {
-        Serial.println("LittleFS OK");
+        Serial.println("LittleFS failed");
+    }
         
         if (!LittleFS.exists("/config.json")) {
             fileSystem.writeFile(LittleFS, "/config.json", "{}");
@@ -244,7 +242,6 @@ void setup() {
 
     // Initialize WiFi FIRST (required for TCP/IP stack)
     // Simple AP mode for initial setup
-    Serial.println("Initializing WiFi...");
     Serial.flush();
     WiFi.mode(WIFI_AP_STA);
     delay(100);
@@ -252,8 +249,6 @@ void setup() {
     IPAddress apIP(192, 168, 4, 1);
     WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
     delay(1000);  // Give TCP/IP stack time to initialize
-    Serial.print("AP Mode IP: ");
-    Serial.println(WiFi.softAPIP());
     Serial.flush();
     
     // Initialize WiFiScanner and trigger pre-scan (before clients connect)
@@ -261,18 +256,10 @@ void setup() {
     wifiScanner.preScanNetworks();
     
     // Now start WiFi Settings Service (for future STA connection)
-    Serial.println("Starting WiFi Settings Service...");
-    Serial.flush();
     wifiSettingsService.begin();
-    Serial.println("WiFi Settings Service started");
-    Serial.flush();
     
     // Start web server (TCP/IP stack is now initialized)
-    Serial.println("Starting web server...");
-    Serial.flush();
     server.begin();
-    Serial.println("Web server started on port 80");
-    Serial.flush();
    
     taskManager.begin();
     
@@ -299,7 +286,6 @@ void setup() {
     }
     
     if (configEmpty) {
-        Serial.println("🔍 Config empty, attempting auto-detection...");
         try {
             sensorManager.autoDetectSensors(&scanner);
             sensorManager.loadConfig(); // Reload after auto-detection
@@ -308,20 +294,12 @@ void setup() {
         }
     }
     
-    Serial.println("=== HYBRID DEVICE READY ===");
-    Serial.println("Device MAC: " + WiFi.macAddress());
-    Serial.println("Local IP: " + WiFi.localIP().toString());
-    Serial.println("💡 Communication modes:");
-    Serial.println("   📡 HTTP: Device registration & fallback");
-    Serial.println("   🔗 MQTT: Real-time sensor data & relay control");
-    Serial.println("   🌉 Bridge: MQTT ↔ Supabase synchronization");
-    Serial.println("   ⚡ WebSocket: Real-time updates on /ws");
+    Serial.println("Device ready");
     
     webSocketService.begin();
     sensorSubmissionService.begin();
     WirelessSensorManager::begin();
     
-    Serial.println("=== SETUP COMPLETE ===");
 }
 
 void loop() {

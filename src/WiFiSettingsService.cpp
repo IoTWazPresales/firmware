@@ -40,24 +40,19 @@ void WiFiSettingsService::begin() {
   if (!_settings.ssid.isEmpty()) {
     WiFi.onEvent(onStationModeDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
     WiFi.onEvent(onStationModeStop, ARDUINO_EVENT_WIFI_STA_STOP);
-    Serial.println("Attempting to connect to saved WiFi: " + _settings.ssid);
     WiFi.begin(_settings.ssid.c_str(), _settings.password.c_str());
     // Connection will happen in loop() - don't block here
-  } else {
-    Serial.println("No saved WiFi credentials - AP mode active");
   }
 }
 
 void WiFiSettingsService::loop() {
-
    if (_isScanning) return; 
   unsigned long currentMillis = millis();
   if (!_lastConnectionAttempt || (currentMillis - _lastConnectionAttempt) >= WIFI_RECONNECTION_DELAY) {
     _lastConnectionAttempt = currentMillis;
     manageSTA();
   }
-  Serial.println("WiFi Status: " + String(WiFi.status()));
-  delay(1000); // Add delay to avoid flooding Serial
+  // Removed verbose status print to save flash
 }
 
 void WiFiSettingsService::WiFiSettings::fromJson(JsonObject& root) {
@@ -98,7 +93,6 @@ void WiFiSettingsService::loadSettings() {
       if (!error && doc.is<JsonObject>()) {
         JsonObject root = doc.as<JsonObject>();
         _settings.fromJson(root);
-        Serial.println("WiFi settings loaded from file");
         return;
       }
     }
@@ -109,7 +103,6 @@ void WiFiSettingsService::loadSettings() {
   _settings.password = "";
   _settings.hostname = "NeuroGrow";
   _settings.staticIPConfig = false;
-  Serial.println("No saved WiFi settings - AP mode will start");
 }
 
 void WiFiSettingsService::saveSettings() {
@@ -121,9 +114,6 @@ void WiFiSettingsService::saveSettings() {
   if (file) {
     serializeJson(root, file);
     file.close();
-    Serial.println("WiFi settings saved");
-  } else {
-    Serial.println("Failed to save WiFi settings");
   }
 }
 
@@ -148,8 +138,6 @@ void WiFiSettingsService::manageSTA() {
   // If SSID is empty or not configured, start AP mode for setup
   if (_settings.ssid.isEmpty()) {
     if (WiFi.getMode() != WIFI_AP && WiFi.getMode() != WIFI_AP_STA) {
-      Serial.println("No WiFi credentials - Starting AP mode for setup");
-      
       // Set mode first
       WiFi.mode(WIFI_AP_STA);
       delay(100);
@@ -160,8 +148,6 @@ void WiFiSettingsService::manageSTA() {
       bool apStarted = WiFi.softAP(apSSID.c_str(), "setup12345678", 1, 0, 4);
       
       if (!apStarted) {
-        Serial.println("ERROR: Failed to start AP mode!");
-        delay(1000);
         return;
       }
       
@@ -174,77 +160,37 @@ void WiFiSettingsService::manageSTA() {
       WiFi.softAPConfig(apIP, gateway, subnet);
       
       delay(100);
-      
-      Serial.print("AP Mode started! IP: ");
-      Serial.println(WiFi.softAPIP());
-      Serial.print("AP SSID: ");
-      Serial.println(apSSID);
-      Serial.println("AP Password: setup12345678");
-      Serial.println("Connect to this network and go to http://192.168.4.1");
-      Serial.flush();
     }
     return;
   }
 
   // Try to connect to configured WiFi
   WiFi.mode(WIFI_AP_STA);  // Keep AP available as fallback
-  Serial.println("Connecting to WiFi: " + _settings.ssid);
   WiFi.begin(_settings.ssid.c_str(), _settings.password.c_str());
   
   // Wait up to 10 seconds for connection
   unsigned long startTime = millis();
   while (WiFi.status() != WL_CONNECTED && (millis() - startTime) < 10000) {
     delay(500);
-    Serial.print(".");
   }
-  Serial.println();
   
   if (WiFi.status() == WL_CONNECTED) {
     IPAddress localIP = WiFi.localIP();
-    Serial.println("\n✅ WiFi Connected!");
-    Serial.print("   IP Address: ");
-    Serial.println(localIP);
+    Serial.printf("WiFi Connected: %s\n", localIP.toString().c_str());
     
     // Set hostname if configured
     if (!_settings.hostname.isEmpty()) {
       WiFi.setHostname(_settings.hostname.c_str());
-      Serial.print("   Hostname: ");
-      Serial.println(_settings.hostname);
     } else {
       WiFi.setHostname("NeuroGrow");
-      Serial.println("   Hostname: NeuroGrow");
     }
     
     // Start mDNS responder
-    if (MDNS.begin(_settings.hostname.isEmpty() ? "neurogrow" : _settings.hostname.c_str())) {
-      MDNS.addService("http", "tcp", 80);
-      Serial.println("🌐 mDNS responder started");
-      Serial.print("   Access at: http://");
-      Serial.print(_settings.hostname.isEmpty() ? "neurogrow" : _settings.hostname);
-      Serial.println(".local");
-    } else {
-      Serial.println("⚠️ mDNS responder failed");
-    }
-    
-    Serial.print("   Or directly at: http://");
-    Serial.println(localIP);
-    Serial.println();
-    Serial.println("⚠️ IMPORTANT: Disconnect from AP and connect to the same WiFi network");
-    Serial.print("   Network: ");
-    Serial.println(_settings.ssid);
-    Serial.println("   Then access via the IP or mDNS address above");
-    Serial.println("   AP mode kept active as fallback");
-    Serial.flush();
+    MDNS.begin(_settings.hostname.isEmpty() ? "neurogrow" : _settings.hostname.c_str());
+    MDNS.addService("http", "tcp", 80);
     
     // Keep AP mode active as fallback (don't disable it)
     // This allows users to reconnect via AP if WiFi connection is lost
-  } else {
-    Serial.println("Connection failed - AP mode still available");
-    Serial.print("   Connect to AP: ");
-    Serial.println(WiFi.softAPSSID());
-    Serial.print("   AP IP: ");
-    Serial.println(WiFi.softAPIP());
-    Serial.flush();
   }
 }
 
@@ -258,19 +204,15 @@ void WiFiSettingsService::handleSettingsRequest(AsyncWebServerRequest* request) 
 }
 
 void WiFiSettingsService::handleSaveSettingsRequest(AsyncWebServerRequest* request, uint8_t* data, size_t len) {
-  Serial.println("[WiFiSettingsService] Received POST request to save WiFi settings");
-  
   DynamicJsonDocument jsonDoc(1024);
   DeserializationError error = deserializeJson(jsonDoc, (char*)data, len);
   
   if (error) {
-    Serial.printf("[WiFiSettingsService] JSON parse error: %s\n", error.c_str());
     request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
     return;
   }
   
   if (!jsonDoc.is<JsonObject>()) {
-    Serial.println("[WiFiSettingsService] Invalid JSON structure");
     request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON structure\"}");
     return;
   }
@@ -288,8 +230,6 @@ void WiFiSettingsService::handleSaveSettingsRequest(AsyncWebServerRequest* reque
   
   // Force immediate connection attempt
   _lastConnectionAttempt = 0;
-  
-  Serial.println("[WiFiSettingsService] WiFi settings saved, reconnecting...");
   
   // Return updated settings
   DynamicJsonDocument responseDoc(1024);

@@ -15,7 +15,10 @@ WiFiScanner::WiFiScanner(AsyncWebServer* server) {
 void WiFiScanner::begin() {
   // Store AP credentials for restarting after scan
   _apSSID = WiFi.softAPSSID();
-  _apPassword = "";  // We'll need to store this separately or use default
+  if (_apSSID.length() == 0) {
+    _apSSID = "NeuroGrow-Setup";  // Default fallback
+  }
+  _apPassword = "setup12345678";  // Default AP password (matches main.cpp)
 }
 
 void WiFiScanner::preScanNetworks() {
@@ -41,10 +44,23 @@ void WiFiScanner::preScanNetworks() {
 
 void WiFiScanner::restartAP() {
   // Restart AP with same credentials to allow client reconnection
+  // Only restart if we're in AP mode (not connected to WiFi)
+  if (WiFi.status() == WL_CONNECTED) {
+    // Connected to WiFi, don't restart AP
+    return;
+  }
+  
   Serial.println("Restarting AP after scan...");
   
+  // Get current AP settings before disconnecting
   String currentSSID = WiFi.softAPSSID();
+  if (currentSSID.length() == 0) {
+    currentSSID = _apSSID.length() > 0 ? _apSSID : "NeuroGrow-Setup";
+  }
   int currentChannel = WiFi.channel();
+  if (currentChannel == 0) {
+    currentChannel = 1;  // Default channel
+  }
   
   // Disconnect AP
   WiFi.softAPdisconnect(true);
@@ -53,7 +69,12 @@ void WiFiScanner::restartAP() {
   // Restart AP with same settings
   WiFi.mode(WIFI_AP_STA);
   delay(100);
-  WiFi.softAP(currentSSID.c_str(), _apPassword.length() > 0 ? _apPassword.c_str() : NULL, currentChannel, 0, 4);
+  
+  const char* password = (_apPassword.length() > 0) ? _apPassword.c_str() : "setup12345678";
+  if (!WiFi.softAP(currentSSID.c_str(), password, currentChannel, 0, 4)) {
+    Serial.println("ERROR: Failed to restart AP!");
+    return;
+  }
   
   // Restore AP IP config
   IPAddress apIP(192, 168, 4, 1);

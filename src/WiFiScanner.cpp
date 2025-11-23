@@ -126,8 +126,11 @@ void WiFiScanner::scanNetworks(AsyncWebServerRequest* request) {
 void WiFiScanner::listNetworks(AsyncWebServerRequest* request) {
   int numNetworks = WiFi.scanComplete();
   
+  Serial.printf("[WiFiScanner] listNetworks called, scanComplete() = %d\n", numNetworks);
+  
   if (numNetworks > 0) {
     // Scan completed successfully, return results
+    Serial.printf("[WiFiScanner] Returning %d networks\n", numNetworks);
     AsyncJsonResponse* response = new AsyncJsonResponse(false, MAX_WIFI_SCANNER_SIZE);
     JsonObject root = response->getRoot();
     JsonArray networks = root.createNestedArray("networks");
@@ -145,10 +148,11 @@ void WiFiScanner::listNetworks(AsyncWebServerRequest* request) {
     _hasCachedResults = true;
     _cachedNetworkCount = numNetworks;
     
-    // If we're in AP mode and scan just completed, restart AP to allow reconnection
-    if (WiFi.getMode() == WIFI_AP_STA && WiFi.status() != WL_CONNECTED) {
-      // AP mode active - restart AP after a short delay to allow response to be sent
-      // Use a flag or check in loop() to restart AP
+    // Check if this scan just completed (within last 2 seconds of starting)
+    // If so, restart AP to allow reconnection
+    unsigned long timeSinceScan = millis() - _lastScanTime;
+    if (timeSinceScan < 2000 && WiFi.getMode() == WIFI_AP_STA && WiFi.status() != WL_CONNECTED) {
+      // Fresh scan just completed - restart AP
       restartAP();
     }
     
@@ -156,6 +160,7 @@ void WiFiScanner::listNetworks(AsyncWebServerRequest* request) {
     request->send(response);
   } else if (numNetworks == -1) {
     // Scan in progress - return empty networks array so frontend can keep polling
+    Serial.println("[WiFiScanner] Scan in progress, returning scanning status");
     AsyncJsonResponse* response = new AsyncJsonResponse(false, 256);
     JsonObject root = response->getRoot();
     root["count"] = 0;
@@ -165,6 +170,7 @@ void WiFiScanner::listNetworks(AsyncWebServerRequest* request) {
     request->send(response);
   } else if (numNetworks == 0) {
     // Scan completed but no networks found
+    Serial.println("[WiFiScanner] Scan completed, no networks found");
     AsyncJsonResponse* response = new AsyncJsonResponse(false, 256);
     JsonObject root = response->getRoot();
     root["count"] = 0;
@@ -172,19 +178,18 @@ void WiFiScanner::listNetworks(AsyncWebServerRequest* request) {
     _hasCachedResults = true;
     _cachedNetworkCount = 0;
     
-    // Restart AP if in AP mode
-    if (WiFi.getMode() == WIFI_AP_STA && WiFi.status() != WL_CONNECTED) {
+    // Check if this scan just completed (within last 2 seconds of starting)
+    unsigned long timeSinceScan = millis() - _lastScanTime;
+    if (timeSinceScan < 2000 && WiFi.getMode() == WIFI_AP_STA && WiFi.status() != WL_CONNECTED) {
+      // Fresh scan just completed - restart AP
       restartAP();
     }
     
     response->setLength();
     request->send(response);
   } else if (numNetworks == -2) {
-    // No scan has been started yet - check if we have cached results from pre-scan
-    // If scan was completed earlier, we can still access the results
-    // Try to get the last scan results (they persist until scanDelete is called)
-    // Actually, if numNetworks == -2, there are no results at all
-    // Return empty array with message to trigger scan
+    // No scan has been started yet or results were cleared
+    Serial.println("[WiFiScanner] No scan results available");
     AsyncJsonResponse* response = new AsyncJsonResponse(false, 256);
     JsonObject root = response->getRoot();
     root["count"] = 0;
@@ -194,6 +199,7 @@ void WiFiScanner::listNetworks(AsyncWebServerRequest* request) {
     request->send(response);
   } else {
     // Unknown error
+    Serial.printf("[WiFiScanner] Unknown error: scanComplete() = %d\n", numNetworks);
     request->send(500, "application/json", "{\"status\":\"error\",\"message\":\"Scan failed\"}");
   }
 }

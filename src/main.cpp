@@ -239,8 +239,6 @@ void setup() {
         }
     });
 
-    Serial.println("WiFi init");
-    Serial.flush();
     WiFi.mode(WIFI_AP_STA);
     delay(100);
     WiFi.softAP("NeuroGrow-Setup", "setup12345678", 1, 0, 4);
@@ -248,35 +246,19 @@ void setup() {
     IPAddress apIP(192, 168, 4, 1);
     WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
     delay(500);
-    Serial.println("AP started");
-    Serial.flush();
     
     // Initialize WiFiStatus event handlers after WiFi is initialized
     wifiStatus.begin();
 
-    Serial.println("WiFiScanner init");
-    Serial.flush();
     wifiScanner.begin();
     wifiScanner.preScanNetworks();
     
-    Serial.println("WiFiSettingsService init");
-    Serial.flush();
     wifiSettingsService.begin();
     
-    Serial.println("Server begin");
-    Serial.flush();
     server.begin();
-    Serial.println("Server started");
-    Serial.flush();
    
-    Serial.println("TaskManager begin");
-    Serial.flush();
     taskManager.begin();
-    Serial.println("TaskManager started");
-    Serial.flush();
     
-    Serial.println("Creating dataCollector");
-    Serial.flush();
     dataCollector = new SensorDataCollector(
         sensorManager.getFirstPH(),
         sensorManager.getFirstTemperatureSensor(),
@@ -286,8 +268,6 @@ void setup() {
         sensorManager.getFirstTDS(),
         sensorManager.getFirstAtmosphereSensor()
     );
-    Serial.println("Creating dataLogger");
-    Serial.flush();
     dataLogger = new DataLogger(&fileSystem, dataCollector, &server);
     
     // Auto-detect sensors if config is empty
@@ -309,14 +289,12 @@ void setup() {
         }
     }
     
-    Serial.println("Device ready");
-    
     webSocketService.begin();
     sensorSubmissionService.begin();
     driverPackageService.begin();  // Initialize after LittleFS is mounted
     WirelessSensorManager::begin();
     
-    Serial.println("Setup complete");
+    Serial.println("Ready");
     Serial.flush();
 }
 

@@ -292,6 +292,7 @@ void setup() {
     webSocketService.begin();
     sensorSubmissionService.begin();
     driverPackageService.begin();  // Initialize after LittleFS is mounted
+    scannerEndpoints.begin();  // Initialize routes after LittleFS is mounted
     WirelessSensorManager::begin();
     
     Serial.println("Ready");

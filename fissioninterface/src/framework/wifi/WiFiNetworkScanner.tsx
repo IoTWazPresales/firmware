@@ -92,8 +92,10 @@ const WiFiNetworkScanner: FC = () => {
   }, [pollNetworkList, finishedWithError]);
 
   useEffect(() => {
-    startNetworkScan();  // Start network scan when component mounts
-  }, [startNetworkScan]);
+    // On mount, try to get existing scan results first (from pre-scan)
+    // Don't trigger a new scan immediately - check if results already exist
+    pollNetworkList();
+  }, [pollNetworkList]);
  
 
   const renderNetworkScanner = () => {

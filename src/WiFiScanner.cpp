@@ -178,22 +178,18 @@ void WiFiScanner::listNetworks(AsyncWebServerRequest* request) {
     response->setLength();
     request->send(response);
   } else if (numNetworks == -2) {
-    // No scan has been started yet
-    // If we have cached results, return them, otherwise trigger scan
-    if (_hasCachedResults) {
-      // Return cached results (from pre-scan)
-      AsyncJsonResponse* response = new AsyncJsonResponse(false, MAX_WIFI_SCANNER_SIZE);
-      JsonObject root = response->getRoot();
-      root["count"] = _cachedNetworkCount;
-      root["cached"] = true;
-      JsonArray networks = root.createNestedArray("networks");
-      // Note: Can't return cached network details without storing them, so just return count
-      // For now, trigger a new scan
-      scanNetworks(request);
-    } else {
-      // No cached results, trigger scan
-      scanNetworks(request);
-    }
+    // No scan has been started yet - check if we have cached results from pre-scan
+    // If scan was completed earlier, we can still access the results
+    // Try to get the last scan results (they persist until scanDelete is called)
+    // Actually, if numNetworks == -2, there are no results at all
+    // Return empty array with message to trigger scan
+    AsyncJsonResponse* response = new AsyncJsonResponse(false, 256);
+    JsonObject root = response->getRoot();
+    root["count"] = 0;
+    root["message"] = "No scan results available. Click 'Scan again' to scan networks.";
+    JsonArray networks = root.createNestedArray("networks");
+    response->setLength();
+    request->send(response);
   } else {
     // Unknown error
     request->send(500, "application/json", "{\"status\":\"error\",\"message\":\"Scan failed\"}");

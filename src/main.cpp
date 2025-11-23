@@ -318,8 +318,11 @@ void setup() {
     
     webSocketService.begin();
     sensorSubmissionService.begin();
+    driverPackageService.begin();  // Initialize after LittleFS is mounted
     WirelessSensorManager::begin();
     
+    Serial.println("Setup complete");
+    Serial.flush();
 }
 
 void loop() {

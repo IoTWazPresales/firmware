@@ -236,6 +236,10 @@ void setup() {
         
         request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Device disconnected and credentials cleared\"}");
     });
+    
+    // ESP32React handles CORS headers, but we need to call begin() after LittleFS is mounted
+    esp32React.begin();
+    
     // Fallback for 404: if it's an API route, return 404; else serve index.html for SPA routing
     server.onNotFound([](AsyncWebServerRequest *request){
         String url = request->url();
@@ -258,6 +262,9 @@ void setup() {
     delay(500);
     Serial.println("AP started");
     Serial.flush();
+    
+    // Initialize WiFiStatus event handlers after WiFi is initialized
+    wifiStatus.begin();
 
     Serial.println("WiFiScanner init");
     Serial.flush();

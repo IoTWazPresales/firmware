@@ -247,28 +247,38 @@ void setup() {
         }
     });
 
-    // Initialize WiFi FIRST (required for TCP/IP stack)
-    // Simple AP mode for initial setup
+    Serial.println("WiFi init");
     Serial.flush();
     WiFi.mode(WIFI_AP_STA);
     delay(100);
     WiFi.softAP("NeuroGrow-Setup", "setup12345678", 1, 0, 4);
+    delay(500);
     IPAddress apIP(192, 168, 4, 1);
     WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-    delay(1000);  // Give TCP/IP stack time to initialize
+    delay(500);
+    Serial.println("AP started");
     Serial.flush();
-    
-    // Initialize WiFiScanner and trigger pre-scan (before clients connect)
+
+    Serial.println("WiFiScanner init");
+    Serial.flush();
     wifiScanner.begin();
     wifiScanner.preScanNetworks();
     
-    // Now start WiFi Settings Service (for future STA connection)
+    Serial.println("WiFiSettingsService init");
+    Serial.flush();
     wifiSettingsService.begin();
     
-    // Start web server (TCP/IP stack is now initialized)
+    Serial.println("Server begin");
+    Serial.flush();
     server.begin();
+    Serial.println("Server started");
+    Serial.flush();
    
+    Serial.println("TaskManager begin");
+    Serial.flush();
     taskManager.begin();
+    Serial.println("TaskManager started");
+    Serial.flush();
     
     Serial.println("Creating dataCollector");
     Serial.flush();
@@ -281,6 +291,8 @@ void setup() {
         sensorManager.getFirstTDS(),
         sensorManager.getFirstAtmosphereSensor()
     );
+    Serial.println("Creating dataLogger");
+    Serial.flush(    );
     Serial.println("Creating dataLogger");
     Serial.flush();
     dataLogger = new DataLogger(&fileSystem, dataCollector, &server);

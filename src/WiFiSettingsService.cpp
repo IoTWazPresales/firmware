@@ -2,6 +2,7 @@
 #include "WiFiCredentials.h"
 #include "WiFiStatus.h"
 #include <LittleFS.h>
+#include <ESPmDNS.h>
 WiFiSettingsService::WiFiSettingsService(AsyncWebServer* server) : _server(server), _lastConnectionAttempt(0) {
   // Don't do anything in constructor - all initialization in begin()
   // Route registration moved to begin() to avoid issues during global construction
@@ -199,13 +200,46 @@ void WiFiSettingsService::manageSTA() {
   Serial.println();
   
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.print("Connected! IP: ");
-    Serial.println(WiFi.localIP());
-    // Disable AP once connected
-    WiFi.mode(WIFI_STA);
+    IPAddress localIP = WiFi.localIP();
+    Serial.println("\n✅ WiFi Connected!");
+    Serial.print("   IP Address: ");
+    Serial.println(localIP);
+    
+    // Set hostname if configured
+    if (!_settings.hostname.isEmpty()) {
+      WiFi.setHostname(_settings.hostname.c_str());
+      Serial.print("   Hostname: ");
+      Serial.println(_settings.hostname);
+    } else {
+      WiFi.setHostname("NeuroGrow");
+      Serial.println("   Hostname: NeuroGrow");
+    }
+    
+    // Start mDNS responder
+    if (MDNS.begin(_settings.hostname.isEmpty() ? "neurogrow" : _settings.hostname.c_str())) {
+      MDNS.addService("http", "tcp", 80);
+      Serial.println("🌐 mDNS responder started");
+      Serial.print("   Access at: http://");
+      Serial.print(_settings.hostname.isEmpty() ? "neurogrow" : _settings.hostname);
+      Serial.println(".local");
+    } else {
+      Serial.println("⚠️ mDNS responder failed");
+    }
+    
+    Serial.print("   Or directly at: http://");
+    Serial.println(localIP);
+    Serial.println("   AP mode kept active as fallback");
+    Serial.flush();
+    
+    // Keep AP mode active as fallback (don't disable it)
+    // This allows users to reconnect via AP if WiFi connection is lost
   } else {
     Serial.println("Connection failed - AP mode still available");
-    // Keep AP mode active
+    Serial.print("   Connect to AP: ");
+    Serial.println(WiFi.softAPSSID());
+    Serial.print("   AP IP: ");
+    Serial.println(WiFi.softAPIP());
+    Serial.flush();
   }
 }
 

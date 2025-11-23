@@ -292,8 +292,6 @@ void setup() {
         sensorManager.getFirstAtmosphereSensor()
     );
     Serial.println("Creating dataLogger");
-    Serial.flush(    );
-    Serial.println("Creating dataLogger");
     Serial.flush();
     dataLogger = new DataLogger(&fileSystem, dataCollector, &server);
     

@@ -172,10 +172,7 @@ void setup() {
             Serial.println("⚠️ index.html missing from filesystem");
         }
     }
-      
-     
-      delay(1000);
-       
+    
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-device-api-key, X-Device-Api-Key");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");

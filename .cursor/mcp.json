@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "fusion-cloud": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "fusion-cloud",
+        "python",
+        "-m",
+        "mcp_server.server"
+      ]
+    }
+  }
+}
